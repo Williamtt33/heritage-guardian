@@ -4,6 +4,7 @@ import { useToast } from './Toast'
 import { getAllModels, deleteModel, setThumbnailOverride, uploadThumbnail } from '../store'
 import { supabase, isSupabaseConfigured } from '../supabase'
 import type { ModelMeta } from '../types'
+import HeritageEditor from './HeritageEditor'
 
 export default function Admin() {
   const { go } = usePage()
@@ -16,6 +17,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true)
   const [uploadingThumbId, setUploadingThumbId] = useState<string | null>(null)
   const [pendingThumbModel, setPendingThumbModel] = useState<string | null>(null)
+  const [editingHeritage, setEditingHeritage] = useState<ModelMeta | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(() => {
@@ -213,6 +215,14 @@ export default function Admin() {
                   <span className="text-[10px] text-text-3/40 font-mono">{model.size || '-'}</span>
                 </div>
                 <button
+                  onClick={() => setEditingHeritage(model)}
+                  className="px-3 py-1.5 rounded-lg text-[11px] text-accent-2/70 hover:bg-accent-2/5 transition-colors bg-transparent border-none cursor-pointer"
+                  style={{ cursor: 'pointer' }}
+                  title="编辑文保信息"
+                >
+                  文保
+                </button>
+                <button
                   onClick={() => go({ route: 'viewer', modelId: model.id, edit: true })}
                   className="px-3 py-1.5 rounded-lg text-[11px] text-accent-1/70 hover:bg-accent-1/5 transition-colors bg-transparent border-none cursor-pointer"
                   style={{ cursor: 'pointer' }}
@@ -229,6 +239,19 @@ export default function Admin() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Heritage Editor Modal */}
+        {editingHeritage && (
+          <HeritageEditor
+            model={editingHeritage}
+            onClose={() => setEditingHeritage(null)}
+            onSaved={() => {
+              setEditingHeritage(null)
+              addToast('文保信息已保存', 'success')
+              load()
+            }}
+          />
         )}
       </div>
     </main>
