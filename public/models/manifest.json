@@ -1,0 +1,195 @@
+[
+  {
+    "id": "chinese-guardian-lion",
+    "name": "石狮子",
+    "description": "清代石雕镇门狮，精雕细刻，卷鬃铃铛，见证了岭南祠庙百年风雨",
+    "file": "Chinese Guardian Lion.splat",
+    "thumbnail": "",
+    "tags": ["文化遗产", "雕塑", "石狮", "红色历史"],
+    "pointCount": "747K",
+    "size": "23 MB",
+    "featured": true,
+    "protectionLevel": "city",
+    "constructionYear": "清光绪年间（约1880年）",
+    "architecturalStyle": "岭南石雕",
+    "conservationStatus": "good",
+    "location": {
+      "address": "广州市越秀区惠福西路五仙观内",
+      "district": "越秀区",
+      "lat": 23.1196,
+      "lng": 113.2591
+    },
+    "historicalPhotos": [
+      {
+        "id": "hp1",
+        "url": "",
+        "year": "1920年代",
+        "caption": "民国初期五仙观门前石狮旧影"
+      },
+      {
+        "id": "hp2",
+        "url": "",
+        "year": "2024年",
+        "caption": "修缮后的石狮，卷鬃纹饰清晰可见"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc1",
+        "title": "五仙观建筑测绘报告",
+        "type": "architecture",
+        "description": "2021年广州市文物考古研究院编制的五仙观建筑群全面测绘档案"
+      },
+      {
+        "id": "doc2",
+        "title": "广州大革命时期五仙观革命活动记述",
+        "type": "party_history",
+        "description": "1925-1927年大革命时期，五仙观曾作为工农运动秘密集会点"
+      }
+    ],
+    "redCultureMarks": [
+      {
+        "id": "rc1",
+        "title": "大革命时期工农集会点",
+        "description": "1925年省港大罢工期间，此处曾为工人纠察队联络站",
+        "period": "大革命时期（1925-1927）"
+      }
+    ],
+    "repairRecords": [
+      {
+        "id": "rr1",
+        "date": "2019-03",
+        "description": "石狮表面风化层清理与加固处理",
+        "photos": []
+      },
+      {
+        "id": "rr2",
+        "date": "2023-08",
+        "description": "卷鬃纹饰精细修复，底座结构加固",
+        "photos": []
+      }
+    ]
+  },
+  {
+    "id": "container",
+    "name": "青花瓷瓶",
+    "description": "清中期青花缠枝莲纹瓷瓶，釉面莹润，器型端庄，是海上丝绸之路贸易的珍贵见证",
+    "file": "Container.splat",
+    "thumbnail": "",
+    "tags": ["文物", "陶瓷", "海上丝路"],
+    "pointCount": "945K",
+    "size": "30 MB",
+    "featured": true,
+    "protectionLevel": "national",
+    "constructionYear": "清乾隆年间（约1760年）",
+    "architecturalStyle": "景德镇青花",
+    "conservationStatus": "excellent",
+    "location": {
+      "address": "广州市天河区珠江东路2号广东省博物馆",
+      "district": "天河区",
+      "lat": 23.1173,
+      "lng": 113.3215
+    },
+    "historicalPhotos": [
+      {
+        "id": "hp3",
+        "url": "",
+        "year": "1980年代",
+        "caption": "南海一号出水文物中同批次青花瓷"
+      },
+      {
+        "id": "hp4",
+        "url": "",
+        "year": "2024年",
+        "caption": "广东省博物馆「海丝遗珍」展厅陈列"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc3",
+        "title": "广东省博物馆馆藏文物档案 — 青花缠枝莲纹瓷瓶",
+        "type": "history",
+        "description": "包含文物来源、鉴定报告、保存环境监测数据"
+      },
+      {
+        "id": "doc4",
+        "title": "海上丝绸之路与清代外销瓷研究",
+        "type": "culture",
+        "description": "学术论文，探讨18世纪广州口岸外销瓷的纹饰演变与文化交流"
+      }
+    ],
+    "repairRecords": [
+      {
+        "id": "rr3",
+        "date": "2015-06",
+        "description": "专业文物修复：釉面微裂缝填补，器身清洁保护处理",
+        "photos": []
+      }
+    ]
+  },
+  {
+    "id": "ponte-portagem",
+    "name": "古桥",
+    "description": "明代石拱桥，三孔联拱，桥面青石铺就，桥栏望柱雕有莲花纹饰，是岭南水乡交通的活态遗产",
+    "file": "ponte-portagem-lite.splat",
+    "thumbnail": "",
+    "tags": ["文化遗产", "建筑", "古桥", "红色历史"],
+    "pointCount": "2.9M",
+    "size": "90 MB",
+    "featured": false,
+    "protectionLevel": "provincial",
+    "constructionYear": "明万历年间（约1590年）",
+    "architecturalStyle": "岭南石拱桥",
+    "conservationStatus": "needs_repair",
+    "location": {
+      "address": "佛山市顺德区杏坛镇逢简水乡",
+      "district": "顺德区",
+      "lat": 22.7847,
+      "lng": 113.1593
+    },
+    "historicalPhotos": [
+      {
+        "id": "hp5",
+        "url": "",
+        "year": "1930年代",
+        "caption": "抗战前夕的古桥旧影，河道宽于今时"
+      },
+      {
+        "id": "hp6",
+        "url": "",
+        "year": "2023年",
+        "caption": "桥面部分石板松动，望柱局部风化"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc5",
+        "title": "顺德水乡古桥群保护规划",
+        "type": "architecture",
+        "description": "佛山市历史文化名城保护规划中关于顺德水乡古桥群的专项保护方案"
+      },
+      {
+        "id": "doc6",
+        "title": "珠江纵队水乡交通线史料",
+        "type": "party_history",
+        "description": "抗日战争时期，珠江纵队曾利用水乡古桥作为物资转运的秘密通道"
+      }
+    ],
+    "redCultureMarks": [
+      {
+        "id": "rc2",
+        "title": "珠江纵队水乡交通站",
+        "description": "1942-1944年，此桥为珠江纵队顺德大队的水上秘密交通节点",
+        "period": "抗日战争时期（1942-1944）"
+      }
+    ],
+    "repairRecords": [
+      {
+        "id": "rr4",
+        "date": "2008-11",
+        "description": "桥墩基础加固，局部石构件替换",
+        "photos": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,208 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Crystalline Palette ── */
+  --color-surface-0: #F2F4FA;
+  --color-surface-1: #EBEEF5;
+  --color-surface-2: #E2E6F0;
+  --color-surface-3: #D4DAE8;
+  --color-border-1: #D8DCE8;
+  --color-border-2: #C4C9D8;
+  --color-accent-1: #7C6FF0;   /* crystal violet */
+  --color-accent-2: #00C2D9;   /* ice cyan */
+  --color-accent-3: #F062A6;   /* rose quartz */
+  --color-text-1: #1B1D2A;     /* deep crystal */
+  --color-text-2: #3D4058;     /* cool slate */
+  --color-text-3: #7B7F96;     /* muted ice */
+  /* Heritage conservation status colors */
+  --color-status-excellent: #4CAF50;
+  --color-status-good: #8BC34A;
+  --color-status-needs-repair: #FF9800;
+  --color-status-critical: #F44336;
+  --color-party-red: #C62828;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  background: #F2F4FA;
+  color: #1B1D2A;
+}
+
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.8;
+  isolation: isolate;
+}
+
+/* Crystal lattice texture — hexagonal grid */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
+  opacity: 0.04;
+  background-image:
+    repeating-linear-gradient(60deg, #7C6FF0 0px, transparent 1px, transparent 40px, #7C6FF0 41px),
+    repeating-linear-gradient(-60deg, #00C2D9 0px, transparent 1px, transparent 40px, #00C2D9 41px),
+    repeating-linear-gradient(0deg, #7C6FF0 0px, transparent 1px, transparent 40px, #7C6FF0 41px);
+  background-size: 70px 70px;
+  mask-image: radial-gradient(ellipse at 50% 30%, rgba(0,0,0,0.3) 0%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, rgba(0,0,0,0.3) 0%, transparent 70%);
+}
+
+#root { min-height: 100vh; position: relative; z-index: 1; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C4C9D8; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #A8AEC2; }
+
+::selection { background: rgba(124, 111, 240, 0.15); color: #1B1D2A; }
+
+/* ── Card ── */
+
+.ink-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(124, 111, 240, 0.06);
+  box-shadow:
+    0 4px 24px rgba(124, 111, 240, 0.04),
+    0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+/* ── Glass (viewer overlay — keep dark) ── */
+
+.glass {
+  background: linear-gradient(135deg, rgba(18,17,15,0.88) 0%, rgba(18,17,15,0.78) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(124,111,240,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+}
+
+.glass-light {
+  background: linear-gradient(135deg, rgba(24,23,20,0.88) 0%, rgba(24,23,20,0.78) 100%);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+/* ── Background atmosphere ── */
+
+.bg-ink-wash {
+  background-image:
+    radial-gradient(ellipse at 25% 40%, rgba(124,111,240,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 75% 60%, rgba(0,194,217,0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 30%, rgba(240,98,166,0.03) 0%, transparent 40%);
+}
+
+.bg-manuscript-grid {
+  background-image:
+    linear-gradient(rgba(27,29,42,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27,29,42,0.015) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+canvas.gsplat-canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+/* ── Typography ── */
+
+.font-display {
+  font-family: 'Noto Serif SC', 'STSong', 'SimSun', serif;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.font-mono { font-family: 'JetBrains Mono', 'Consolas', monospace; }
+
+.gradient-text {
+  background: linear-gradient(135deg, #4A3FC4 0%, #7C6FF0 40%, #00C2D9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Animations ── */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-up { animation: fade-up 0.8s ease-out both; }
+.animate-fade-in { animation: fade-in 0.6s ease-out both; }
+.animate-scale-in { animation: scale-in 0.5s ease-out both; }
+
+/* Stagger children */
+.stagger > * { opacity: 0; animation: fade-up 0.8s ease-out forwards; }
+.stagger > *:nth-child(1) { animation-delay: 0.06s; }
+.stagger > *:nth-child(2) { animation-delay: 0.12s; }
+.stagger > *:nth-child(3) { animation-delay: 0.18s; }
+.stagger > *:nth-child(4) { animation-delay: 0.24s; }
+.stagger > *:nth-child(5) { animation-delay: 0.30s; }
+.stagger > *:nth-child(6) { animation-delay: 0.36s; }
+
+/* ── Buttons ── */
+
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.625rem 1.5rem; border-radius: 0.75rem;
+  background: linear-gradient(135deg, #7C6FF0 0%, #5B4FD6 100%);
+  color: #FFFFFF;
+  font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.01em;
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer; border: none; outline: none;
+  position: relative; overflow: hidden;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 28px rgba(124, 111, 240, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+/* ── Navbar glass ── */
+
+.navbar-glass {
+  background: rgba(242,244,250,0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(124,111,240,0.05);
+}
+
+/* ── Crystal flare particles (replaces fog) ── */
+
+.fog-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124,111,240,0.07) 0%, rgba(0,194,217,0.03) 40%, transparent 70%);
+  animation: crystal-drift var(--drift-duration, 30s) linear infinite;
+  animation-delay: var(--drift-delay, 0s);
+}
+
+@keyframes crystal-drift {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  25%  { transform: translate(var(--drift-x, 20px), var(--drift-y, -15px)) scale(1.08); opacity: 0.7; }
+  50%  { transform: translate(calc(var(--drift-x) * 2), calc(var(--drift-y) * 0.5)) scale(1); opacity: 0.5; }
+  75%  { transform: translate(var(--drift-x), calc(var(--drift-y) * -0.5)) scale(0.92); opacity: 0.3; }
+  100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+}
