@@ -128,7 +128,7 @@ CREATE POLICY "Auth read admin_users" ON public.admin_users
   FOR SELECT USING (auth.role() = 'authenticated');
 
 -- ── 7. 存储桶（需通过 API 或 Dashboard 创建，见下方说明）──
--- 请在 Supabase Dashboard → Storage 中手动创建以下两个公开桶：
+-- 请在 Supabase Dashboard → Storage 中手动创建以下公开桶：
 
 -- 桶名: splat-files
 --   ☑ 公开桶 (public bucket)
@@ -139,3 +139,71 @@ CREATE POLICY "Auth read admin_users" ON public.admin_users
 --   ☑ 公开桶 (public bucket)
 --   文件大小限制: 5 MB
 --   允许的 MIME 类型: image/png,image/jpeg,image/webp
+
+-- 桶名: report-photos
+--   ☑ 公开桶 (public bucket)
+--   文件大小限制: 5 MB
+--   允许的 MIME 类型: image/png,image/jpeg,image/webp
+
+-- ════════════════════════════════════════════════════════════════
+-- 8. community_reports 表（公众参与上报系统）
+-- ════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS public.community_reports (
+  id              TEXT PRIMARY KEY,
+  model_id        TEXT,
+  title           TEXT NOT NULL,
+  description     TEXT NOT NULL,
+  category        TEXT NOT NULL DEFAULT 'other',
+  reporter        TEXT DEFAULT '匿名用户',
+  reporter_email  TEXT,
+  photos          JSONB DEFAULT '[]',
+  status          TEXT NOT NULL DEFAULT 'pending',
+  admin_note      TEXT,
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS
+ALTER TABLE public.community_reports ENABLE ROW LEVEL SECURITY;
+
+-- 任何人可读
+DROP POLICY IF EXISTS "Public read reports" ON public.community_reports;
+CREATE POLICY "Public read reports" ON public.community_reports
+  FOR SELECT USING (true);
+
+-- 任何人可提交（匿名上报）
+DROP POLICY IF EXISTS "Public insert reports" ON public.community_reports;
+CREATE POLICY "Public insert reports" ON public.community_reports
+  FOR INSERT WITH CHECK (true);
+
+-- 管理员可更新状态
+DROP POLICY IF EXISTS "Admin update reports" ON public.community_reports;
+CREATE POLICY "Admin update reports" ON public.community_reports
+  FOR UPDATE USING (
+    auth.role() = 'authenticated'
+    AND auth.uid() IN (SELECT user_id FROM public.admin_users)
+  )
+  WITH CHECK (
+    auth.role() = 'authenticated'
+    AND auth.uid() IN (SELECT user_id FROM public.admin_users)
+  );
+
+-- 管理员可删除
+DROP POLICY IF EXISTS "Admin delete reports" ON public.community_reports;
+CREATE POLICY "Admin delete reports" ON public.community_reports
+  FOR DELETE USING (
+    auth.role() = 'authenticated'
+    AND auth.uid() IN (SELECT user_id FROM public.admin_users)
+  );
+
+-- Storage RLS: report-photos 桶
+-- 任何人可读
+DROP POLICY IF EXISTS "Public read report photos" ON storage.objects;
+CREATE POLICY "Public read report photos" ON storage.objects
+  FOR SELECT USING (bucket_id = 'report-photos');
+
+-- 任何人可上传
+DROP POLICY IF EXISTS "Public upload report photos" ON storage.objects;
+CREATE POLICY "Public upload report photos" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'report-photos');

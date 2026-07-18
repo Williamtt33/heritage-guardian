@@ -290,15 +290,152 @@ export function saveHeritageMeta(modelId: string, meta: HeritageMeta): void {
 
 // ── Community Reports ──
 
-export function getCommunityReports(modelId: string): CommunityReport[] {
+const REPORTS_KEY = STORAGE_KEY_COMMUNITY_REPORTS + '_global'
+
+/** Get all community reports — Supabase first, localStorage fallback */
+export async function getAllReports(): Promise<CommunityReport[]> {
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('community_reports')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (!error && data) {
+        return (data as any[]).map(mapReportFromDB)
+      }
+    } catch (e) { warn('云端上报加载失败，使用本地缓存', e) }
+  }
+  // localStorage fallback
+  return getLocalReports()
+}
+
+function getLocalReports(): CommunityReport[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_COMMUNITY_REPORTS + modelId)
+    const raw = localStorage.getItem(REPORTS_KEY)
     return raw ? JSON.parse(raw) : []
   } catch { return [] }
 }
 
-export function saveCommunityReports(modelId: string, reports: CommunityReport[]): void {
-  try { localStorage.setItem(STORAGE_KEY_COMMUNITY_REPORTS + modelId, JSON.stringify(reports)) } catch { /* quota */ }
+function saveLocalReports(reports: CommunityReport[]): void {
+  try { localStorage.setItem(REPORTS_KEY, JSON.stringify(reports)) } catch { /* quota */ }
+}
+
+/** Upload a report photo to Supabase Storage. Returns public URL. */
+export async function uploadReportPhoto(file: File): Promise<string> {
+  if (!isSupabaseConfigured()) throw new Error('Supabase 未配置')
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `reports/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const { error } = await supabase.storage
+    .from('report-photos')
+    .upload(path, file, { cacheControl: '31536000', upsert: true, contentType: file.type })
+  if (error) throw new Error(`图片上传失败: ${error.message}`)
+  const { data } = supabase.storage.from('report-photos').getPublicUrl(path)
+  return data.publicUrl
+}
+
+/** Submit a new community report — Supabase first, localStorage fallback */
+export async function submitReport(report: Omit<CommunityReport, 'id' | 'createdAt' | 'status'>): Promise<CommunityReport> {
+  const full: CommunityReport = {
+    ...report,
+    id: `cr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  }
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('community_reports').insert(mapReportToDB(full))
+      if (error) throw error
+      return full
+    } catch (e) {
+      warn('云端上报提交失败，保存到本地', e)
+    }
+  }
+
+  // localStorage fallback
+  const existing = getLocalReports()
+  existing.unshift(full)
+  saveLocalReports(existing)
+  return full
+}
+
+/** Admin: update report status */
+export async function updateReportStatus(
+  reportId: string,
+  status: CommunityReport['status'],
+  adminNote?: string,
+): Promise<void> {
+  if (isSupabaseConfigured()) {
+    try {
+      const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() }
+      if (adminNote !== undefined) update.admin_note = adminNote
+      const { error } = await supabase.from('community_reports').update(update).eq('id', reportId)
+      if (error) throw error
+      return
+    } catch (e) { warn('云端状态更新失败，更新本地', e) }
+  }
+  // localStorage fallback
+  const reports = getLocalReports()
+  const idx = reports.findIndex(r => r.id === reportId)
+  if (idx >= 0) {
+    reports[idx] = { ...reports[idx], status }
+    saveLocalReports(reports)
+  }
+}
+
+/** Admin: delete a report */
+export async function deleteReport(reportId: string): Promise<void> {
+  if (isSupabaseConfigured()) {
+    try {
+      const { error } = await supabase.from('community_reports').delete().eq('id', reportId)
+      if (error) throw error
+      return
+    } catch (e) { warn('云端删除失败，删除本地', e) }
+  }
+  const reports = getLocalReports().filter(r => r.id !== reportId)
+  saveLocalReports(reports)
+}
+
+/** Map Supabase DB row → CommunityReport */
+function mapReportFromDB(db: any): CommunityReport {
+  return {
+    id: db.id,
+    title: db.title,
+    description: db.description,
+    category: db.category,
+    reporter: db.reporter ?? '匿名用户',
+    reporterEmail: db.reporter_email,
+    photos: Array.isArray(db.photos) ? db.photos : [],
+    status: db.status ?? 'pending',
+    adminNote: db.admin_note,
+    createdAt: db.created_at ? db.created_at.slice(0, 10) : '',
+    modelId: db.model_id,
+  }
+}
+
+/** Map CommunityReport → Supabase DB row */
+function mapReportToDB(r: CommunityReport): Record<string, unknown> {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    category: r.category,
+    reporter: r.reporter,
+    reporter_email: (r as any).reporterEmail ?? null,
+    photos: r.photos,
+    status: r.status,
+    model_id: (r as any).modelId ?? null,
+    created_at: r.createdAt,
+  }
+}
+
+/** Backward-compat: kept for existing code, returns local reports only */
+export function getCommunityReports(_modelId: string): CommunityReport[] {
+  return getLocalReports()
+}
+
+export function saveCommunityReports(_modelId: string, reports: CommunityReport[]): void {
+  saveLocalReports(reports)
 }
 
 // ── Model URL Resolution ──

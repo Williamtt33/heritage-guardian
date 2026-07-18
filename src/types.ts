@@ -62,6 +62,9 @@ export interface CommunityReport {
   status: 'pending' | 'reviewed' | 'resolved'
   createdAt: string
   reporter: string
+  reporterEmail?: string
+  modelId?: string
+  adminNote?: string
 }
 
 export interface RedCultureMark {

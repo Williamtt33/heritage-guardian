@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { CommunityReport } from '../types'
-import { getCommunityReports, saveCommunityReports } from '../store'
+import { getAllReports, submitReport, uploadReportPhoto } from '../store'
+import { isSupabaseConfigured } from '../supabase'
 import PointCloudBackground from './PointCloudBackground'
 import ScrollRoller from './ScrollRoller'
 
@@ -87,43 +88,71 @@ export default function Community() {
   const [formDesc, setFormDesc] = useState('')
   const [formCategory, setFormCategory] = useState<CommunityReport['category']>('damage')
   const [formReporter, setFormReporter] = useState('')
+  const [formPhotos, setFormPhotos] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Load from localStorage, fall back to demo data
-    const all: CommunityReport[] = []
-    // Aggregate reports across all models (using the demo data as base)
-    const stored = getCommunityReports('_global')
-    if (stored.length > 0) {
-      all.push(...stored)
-    } else {
-      all.push(...DEMO_REPORTS)
-    }
-    setReports(all)
-    setLoading(false)
+    getAllReports().then(all => {
+      // If no reports at all, seed with demo data
+      if (all.length === 0) {
+        all = DEMO_REPORTS
+      }
+      setReports(all)
+      setLoading(false)
+    })
   }, [])
 
-  const handleSubmit = () => {
+  const removePhoto = (idx: number) => {
+    setFormPhotos(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleSubmit = async () => {
     if (!formTitle.trim() || !formDesc.trim()) return
     setSubmitting(true)
-    const report: CommunityReport = {
-      id: `cr-${Date.now()}`,
-      title: formTitle.trim(),
-      description: formDesc.trim(),
-      category: formCategory,
-      reporter: formReporter.trim() || '匿名用户',
-      status: 'pending',
-      createdAt: new Date().toISOString().slice(0, 10),
-      photos: [],
+    setUploading(true)
+
+    try {
+      // Step 1: Upload photos (cloud or local data URL)
+      const photoUrls: string[] = []
+      for (const file of formPhotos) {
+        try {
+          if (isSupabaseConfigured()) {
+            const url = await uploadReportPhoto(file)
+            photoUrls.push(url)
+          } else {
+            // Fallback: convert to data URL
+            const dataUrl = await fileToDataUrl(file)
+            photoUrls.push(dataUrl)
+          }
+        } catch (e) {
+          console.warn('图片上传失败，跳过:', e)
+        }
+      }
+
+      // Step 2: Submit report
+      const report = await submitReport({
+        title: formTitle.trim(),
+        description: formDesc.trim(),
+        category: formCategory,
+        reporter: formReporter.trim() || '匿名用户',
+        photos: photoUrls,
+      })
+
+      setReports(prev => [report, ...prev])
+      setFormTitle(''); setFormDesc(''); setFormReporter('')
+      setFormPhotos([])
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      setSubmitted(true)
+      setTimeout(() => setSubmitted(false), 3000)
+    } catch (e: any) {
+      console.error('提交失败:', e)
+    } finally {
+      setUploading(false)
+      setSubmitting(false)
     }
-    const updated = [report, ...reports]
-    setReports(updated)
-    saveCommunityReports('_global', updated)
-    setFormTitle(''); setFormDesc(''); setFormReporter('')
-    setSubmitting(false)
-    setSubmitted(true)
-    setTimeout(() => setSubmitted(false), 3000)
   }
 
   return (
@@ -270,6 +299,44 @@ export default function Community() {
                     />
                   </div>
                   <div>
+                    <label className="block text-[12px] font-medium text-text-2 mb-1.5">现场照片</label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={e => {
+                        const files = Array.from(e.target.files ?? [])
+                        setFormPhotos(prev => [...prev, ...files])
+                      }}
+                      className="hidden"
+                    />
+                    {formPhotos.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {formPhotos.map((f, i) => (
+                          <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border-1 bg-surface-2 group/thumb">
+                            <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => removePhoto(i)}
+                              className="absolute top-0.5 right-0.5 w-5 h-5 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors border-none cursor-pointer"
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-2 rounded-xl text-[12px] text-accent-1/70 hover:bg-accent-1/5 border border-dashed border-accent-1/20 transition-colors bg-transparent cursor-pointer"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      + 添加照片
+                    </button>
+                  </div>
+                  <div>
                     <label className="block text-[12px] font-medium text-text-2 mb-1.5">您的称呼</label>
                     <input
                       type="text"
@@ -285,7 +352,7 @@ export default function Community() {
                     className="btn-primary w-full text-[14px] py-3 rounded-xl font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ cursor: submitting ? 'not-allowed' : 'pointer' }}
                   >
-                    {submitting ? '提交中...' : '提交上报'}
+                    {uploading ? '图片上传中…' : submitting ? '提交中…' : '提交上报'}
                   </button>
                 </div>
               </div>
@@ -295,4 +362,14 @@ export default function Community() {
       </div>
     </main>
   )
+}
+
+/** Convert a File to a data URL (used as localStorage fallback) */
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('文件读取失败'))
+    reader.readAsDataURL(file)
+  })
 }
