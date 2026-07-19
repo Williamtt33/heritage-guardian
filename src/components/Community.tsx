@@ -166,7 +166,7 @@ export default function Community() {
         {/* Header */}
         <section className="pt-20 sm:pt-28 pb-10 sm:pb-14">
           <div className="max-w-4xl mx-auto px-6 sm:px-8 lg:px-10">
-            <div className="mb-8 animate-fade-up">
+            <div className="mb-8 animate-fade-up max-w-3xl mx-auto">
               <ScrollRoller />
             </div>
             <div className="text-center animate-fade-up">
