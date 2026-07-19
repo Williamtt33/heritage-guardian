@@ -21,7 +21,7 @@ export default function Footer() {
               </span>
             </div>
             <span className="text-[11px] text-text-3/40">
-              数字建档 · 时光对比 · 公众共治 — 让历史街区在数字中永续
+              数字建档 · 公众共治 — 让历史街区在数字中永续
             </span>
           </div>
 

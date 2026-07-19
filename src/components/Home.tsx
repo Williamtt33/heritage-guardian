@@ -31,20 +31,6 @@ const CAPABILITIES = [
   {
     icon: (
       <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="8" height="18" rx="1" />
-        <rect x="13" y="3" width="8" height="18" rx="1" />
-        <line x1="12" y1="3" x2="12" y2="21" />
-        <path d="M8 12h8" />
-      </svg>
-    ),
-    title: '时光对比',
-    desc: '历史影像与 3D 现状同屏滑动对比，修缮前后一目了然。让保护成效数据化、可视化、可追溯。',
-    color: '#00C2D9',
-    route: 'archive' as const,
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -143,8 +129,6 @@ export default function Home() {
               <span className="w-1.5 h-1.5 rounded-full bg-accent-1/60 animate-pulse shrink-0" />
               <span>高精度扫描</span>
               <span className="opacity-20">·</span>
-              <span>时光对比</span>
-              <span className="opacity-20">·</span>
               <span>全民共治</span>
             </div>
 
@@ -195,14 +179,14 @@ export default function Home() {
           <div className="max-w-5xl mx-auto px-6 lg:px-10">
             <div className="text-center mb-14 sm:mb-18 animate-fade-up">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display tracking-tight mb-5 leading-[1.25]">
-                <span className="gradient-text">三大核心能力</span>
+                <span className="gradient-text">核心能力</span>
               </h2>
               <p className="text-text-3 text-base max-w-lg mx-auto font-light leading-[1.8]">
                 从数字建档到公众共治，构建完整的历史文化街区活化保护闭环
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 max-w-2xl mx-auto">
               {CAPABILITIES.map((cap, i) => (
                 <button
                   key={cap.title}
@@ -302,7 +286,7 @@ export default function Home() {
             </svg>
             <span className="text-[10px] text-text-3/25 tracking-[0.2em] font-medium self-end"
               style={{ fontFamily: "'Noto Serif SC', serif" }}>
-              数字建档 · 时光对比 · 公众共治
+              数字建档 · 公众共治
             </span>
           </div>
         </div>

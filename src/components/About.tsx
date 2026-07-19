@@ -54,7 +54,7 @@ export default function About() {
               </div>
             </div>
 
-            {/* 2. 三大核心能力 */}
+            {/* 2. 核心能力 */}
             <div className="animate-fade-up space-y-5">
               <h2 className="text-2xl sm:text-3xl font-display tracking-tight text-text-1">
                 核心能力
@@ -62,7 +62,6 @@ export default function About() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { icon: '🏛️', title: '数字建档', desc: '3DGS 高精度三维扫描，为每一处历史建筑建立包含结构信息、保护等级、文史档案的完整数字档案。低成本部署，大规模覆盖，永久保存建筑原貌。' },
-                  { icon: '⏳', title: '时光对比', desc: '修缮前后同屏滑动对比，历史照片与三维现状直观切换。让街区的每一次保护修缮都有据可查、有图可证，成效一目了然。' },
                   { icon: '🤝', title: '公众共治', desc: '居民随手拍上报隐患、游客分享历史记忆、专家在线研判、政府精准决策。打通基层文保的最后一公里，构建共建共治共享的保护新格局。' },
                 ].map(item => (
                   <div key={item.title} className="ink-card rounded-2xl p-5 sm:p-6 space-y-2">
@@ -83,12 +82,11 @@ export default function About() {
               </h2>
               <div className="space-y-4 text-[14px] sm:text-[15px] text-text-2/80 leading-[1.85] font-light">
                 <p>
-                  历史文化街区的保护需要技术支撑，更需要多方参与。晶格视界将数字建档、时光对比、公众共治三大能力串联为一个完整的保护闭环。
+                  历史文化街区的保护需要技术支撑，更需要多方参与。晶格视界将数字建档与公众共治两大能力串联为一个完整的保护闭环。
                 </p>
                 <ul className="space-y-3 list-none pl-0">
                   {[
                     { title: '建档是基础', desc: '通过高精度 3DGS 扫描，为每一处历史建筑建立毫米级精度的数字档案。这是保护工作的起点，也是所有后续应用的数字化底座。', color: '#7C6FF0' },
-                    { title: '对比是手段', desc: '将修缮前后的三维数据与历史影像叠加对比，让保护成效从主观判断变为客观数据。为工程验收、资金审计、学术研究提供可视化依据。', color: '#00C2D9' },
                     { title: '共治是目标', desc: '通过公众参与机制，让居民、游客、专家、政府在同一平台上协同工作。从隐患发现到专业研判再到修缮落实，形成快速响应的保护治理闭环。', color: '#4CAF50' },
                   ].map((item, i) => (
                     <li key={i} className="flex items-start gap-3">
@@ -167,7 +165,7 @@ export default function About() {
             </svg>
             <span className="text-[10px] text-text-3/25 tracking-[0.2em] font-medium self-end"
               style={{ fontFamily: "'Noto Serif SC', serif" }}>
-              数字建档 · 时光对比 · 公众共治
+              数字建档 · 公众共治
             </span>
           </div>
         </div>

@@ -11,7 +11,6 @@ import CameraPathPanel from './CameraPathPanel'
 import ControlsHelp from './ControlsHelp'
 import LoadingScreen from './LoadingScreen'
 import HeritagePanel from './HeritagePanel'
-import TimeCompare from './TimeCompare'
 import type { ModelMeta } from '../types'
 
 interface Props {
@@ -53,8 +52,6 @@ export default function Viewer3D({ modelSource, modelName, modelId, readOnly, do
   const [showCameraPathPanel, setShowCameraPathPanel] = useState(false)
   const [showPerf, setShowPerf] = useState(false)
   const [showHeritagePanel, setShowHeritagePanel] = useState(false)
-  const [showTimeCompare, setShowTimeCompare] = useState(false)
-  const [compareScreenshot, setCompareScreenshot] = useState<string | null>(null)
   const isPathPlayingRef = useRef(false)
   const pathUpdateRef = useRef<(() => void) | null>(null)
   const playback = usePathPlayer(activePath, cameraRef, controlsRef, splatModuleRef, isPathPlayingRef, pathUpdateRef)
@@ -448,20 +445,11 @@ export default function Viewer3D({ modelSource, modelName, modelId, readOnly, do
             <>
               <div className="w-px h-6 bg-white/10" />
               <button
-                onClick={() => { setShowHeritagePanel(prev => !prev); setShowTimeCompare(false) }}
+                onClick={() => setShowHeritagePanel(prev => !prev)}
                 className={`rounded-xl px-3 py-2.5 text-xs font-medium transition-all bg-transparent cursor-pointer ${showHeritagePanel ? 'bg-accent-1/20 text-accent-1 border border-accent-1/30' : 'glass text-white/70 hover:text-white'}`}
                 style={{ cursor: 'pointer' }}
               >📋 建筑档案</button>
             </>
-          )}
-
-          {/* Time compare toggle (all users) */}
-          {heritageModel && (heritageModel.historicalPhotos?.length ?? 0) > 0 && (
-            <button
-              onClick={() => { setShowTimeCompare(prev => !prev); setShowHeritagePanel(false) }}
-              className={`rounded-xl px-3 py-2.5 text-xs font-medium transition-all bg-transparent cursor-pointer ${showTimeCompare ? 'bg-accent-2/20 text-accent-2 border border-accent-2/30' : 'glass text-white/70 hover:text-white'}`}
-              style={{ cursor: 'pointer' }}
-            >⏳ 时光对比</button>
           )}
 
           {!readOnly && (
@@ -533,24 +521,6 @@ export default function Viewer3D({ modelSource, modelName, modelId, readOnly, do
         model={heritageModel ?? null}
         isOpen={showHeritagePanel}
         onClose={() => setShowHeritagePanel(false)}
-      />
-
-      {/* Time compare overlay */}
-      <TimeCompare
-        currentImage={compareScreenshot}
-        historicalPhotos={(heritageModel?.historicalPhotos || []).map(p => ({
-          url: p.url,
-          year: p.year,
-          caption: p.caption,
-        }))}
-        isOpen={showTimeCompare}
-        onClose={() => setShowTimeCompare(false)}
-        onCaptureScreenshot={() => {
-          const canvas = canvasRef.current
-          if (canvas) {
-            setCompareScreenshot(canvas.toDataURL('image/jpeg', 0.85))
-          }
-        }}
       />
 
       <ControlsHelp
