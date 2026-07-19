@@ -116,12 +116,68 @@ export function useSceneInit({ canvasRef, containerRef, modelSource }: UseSceneI
             throw new Error(`无法连接服务器加载模型: ${modelSource.url}`)
           }
 
+          // Pre-compute scene bounds from splat data for camera framing
+          let sceneBounds: { cx: number; cy: number; cz: number; halfSize: number } | null = null
+          try {
+            const sampleRes = await fetch(modelSource.url + '?sample')
+            if (sampleRes.ok && sampleRes.body) {
+              const reader = sampleRes.body.getReader()
+              const chunks: Uint8Array[] = []
+              let totalBytes = 0
+              const MAX_SAMPLE = 65536 // Read first 64KB (~2048 gaussians)
+              while (totalBytes < MAX_SAMPLE) {
+                const { done, value } = await reader.read()
+                if (done || !value) break
+                chunks.push(value)
+                totalBytes += value.length
+              }
+              reader.cancel() // Abort the rest of the download
+
+              // Merge chunks and parse positions
+              const buf = new Uint8Array(totalBytes)
+              let offset = 0
+              for (const c of chunks) { buf.set(c, offset); offset += c.length }
+
+              const count = Math.floor(totalBytes / 32)
+              let minX = Infinity, minY = Infinity, minZ = Infinity
+              let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+              const view = new DataView(buf.buffer)
+              const stride = Math.max(1, Math.floor(count / 500)) // Sample ~500 points
+              for (let i = 0; i < count; i += stride) {
+                const off = i * 32
+                const x = view.getFloat32(off, true)
+                const y = view.getFloat32(off + 4, true)
+                const z = view.getFloat32(off + 8, true)
+                if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                  if (x < minX) minX = x; if (x > maxX) maxX = x
+                  if (y < minY) minY = y; if (y > maxY) maxY = y
+                  if (z < minZ) minZ = z; if (z > maxZ) maxZ = z
+                }
+              }
+              if (isFinite(minX)) {
+                const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2
+                const halfSize = Math.max(maxX - minX, maxY - minY, maxZ - minZ) / 2
+                sceneBounds = { cx, cy, cz, halfSize }
+              }
+            }
+          } catch { /* pre-compute failed, use default camera */ }
+
           const splat = await SPLAT.Loader.LoadAsync(
             modelSource.url, localScene as any,
             (p: number) => setProgress(Math.round(p * 100)),
           )
           if (!disposed && splat) {
             setSplatCount(splat.data?.vertexCount ?? 0)
+
+            // Auto-frame camera to show the model
+            if (sceneBounds) {
+              const { cx, cy, cz, halfSize } = sceneBounds
+              const dist = halfSize * 2.5 || 5
+              const SPLAT_V3 = SPLAT.Vector3
+              localCamera.position = new SPLAT_V3(cx + dist * 0.5, cy + dist * 0.3, cz + dist)
+              localControls.setCameraTarget(new SPLAT_V3(cx, cy, cz))
+              localControls.dampening = 1; localControls.update(); localControls.dampening = 0.2
+            }
           }
         }
       } catch (err: any) {
