@@ -47,14 +47,6 @@
         "description": "1925-1927年大革命时期，五仙观曾作为工农运动秘密集会点"
       }
     ],
-    "redCultureMarks": [
-      {
-        "id": "rc1",
-        "title": "大革命时期工农集会点",
-        "description": "1925年省港大罢工期间，此处曾为工人纠察队联络站",
-        "period": "大革命时期（1925-1927）"
-      }
-    ],
     "repairRecords": [
       {
         "id": "rr1",
@@ -173,14 +165,6 @@
         "title": "珠江纵队水乡交通线史料",
         "type": "party_history",
         "description": "抗日战争时期，珠江纵队曾利用水乡古桥作为物资转运的秘密通道"
-      }
-    ],
-    "redCultureMarks": [
-      {
-        "id": "rc2",
-        "title": "珠江纵队水乡交通站",
-        "description": "1942-1944年，此桥为珠江纵队顺德大队的水上秘密交通节点",
-        "period": "抗日战争时期（1942-1944）"
       }
     ],
     "repairRecords": [

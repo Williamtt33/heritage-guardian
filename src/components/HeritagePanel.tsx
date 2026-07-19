@@ -160,30 +160,6 @@ export default function HeritagePanel({ model, isOpen, onClose }: Props) {
               </div>
             )}
 
-            {/* Red Culture Marks */}
-            {(model.redCultureMarks || []).length > 0 && (
-              <SectionButton
-                label="红色文化印记"
-                count={(model.redCultureMarks || []).length}
-                isOpen={expandedSection === 'redCulture'}
-                onClick={() => toggle('redCulture')}
-              />
-            )}
-            {expandedSection === 'redCulture' && (model.redCultureMarks || []).length > 0 && (
-              <div className="px-3 pb-4 space-y-2">
-                {(model.redCultureMarks || []).map(rm => (
-                  <div key={rm.id} className="p-3 rounded-xl"
-                    style={{ background: 'rgba(198,40,40,0.04)' }}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[13px]">🚩</span>
-                      <p className="text-[12px] font-semibold" style={{ color: '#C62828' }}>{rm.title}</p>
-                    </div>
-                    <p className="text-[11px] text-text-3/50 leading-relaxed mb-1">{rm.description}</p>
-                    <p className="text-[10px] text-text-3/40">{rm.period}</p>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
