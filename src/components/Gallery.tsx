@@ -60,7 +60,7 @@ export default function Gallery() {
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-1/60" />
                 场景画廊
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display tracking-tight mb-6 leading-[1.22]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display tracking-tight mb-6 leading-[1.22] text-center">
                 <span className="gradient-text">场景画廊</span>
               </h1>
             </div>

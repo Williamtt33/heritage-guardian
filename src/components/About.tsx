@@ -22,7 +22,7 @@ export default function About() {
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-1/60" />
                 关于项目
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display tracking-tight mb-5 leading-[1.22]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display tracking-tight mb-5 leading-[1.22] text-center">
                 <span className="gradient-text">关于晶格视界</span>
               </h1>
               <p className="text-text-3/60 text-sm max-w-lg mx-auto">

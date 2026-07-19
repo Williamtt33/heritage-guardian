@@ -132,7 +132,7 @@ export default function Home() {
               <span>全民共治</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[88px] font-display leading-[1.25] sm:leading-[1.18] mb-8 sm:mb-10 tracking-tight">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[88px] font-display leading-[1.25] sm:leading-[1.18] mb-8 sm:mb-10 tracking-tight text-center">
               <span className="gradient-text">让历史街区在数字中永续</span>
             </h1>
             <p className="text-sm sm:text-lg text-text-2 max-w-xl mx-auto mb-10 sm:mb-14 leading-[1.8] font-light">
