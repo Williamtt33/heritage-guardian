@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase'
 import type { ModelMeta, Hotspot, CameraPath, Vector3Like, HistoricalPhoto, ArchiveDocument, RepairRecord, CommunityReport, RedCultureMark, TourRoute } from './types'
-import { STORAGE_KEY_HOTSPOTS, STORAGE_KEY_CAMERA_PATHS, STORAGE_KEY_CUSTOM_MODELS, STORAGE_KEY_INITIAL_CAMERA, STORAGE_KEY_THUMBNAILS, STORAGE_KEY_HERITAGE_META, STORAGE_KEY_COMMUNITY_REPORTS, applyHeritageDefaults } from './types'
+import { STORAGE_KEY_HOTSPOTS, STORAGE_KEY_CAMERA_PATHS, STORAGE_KEY_CUSTOM_MODELS, STORAGE_KEY_INITIAL_CAMERA, STORAGE_KEY_THUMBNAILS, STORAGE_KEY_HERITAGE_META, STORAGE_KEY_COMMUNITY_REPORTS, STORAGE_KEY_PENDING_MODELS, STORAGE_KEY_REJECTED_MODELS, applyHeritageDefaults, generateTrackingCode } from './types'
 
 // ── Helpers ──
 
@@ -85,17 +85,18 @@ export async function getModelById(id: string): Promise<ModelMeta | null> {
   return all.find(m => m.id === id) ?? null
 }
 
-export async function saveModel(model: Omit<ModelMeta, 'id'> & { id?: string }): Promise<string> {
+export async function saveModel(model: Omit<ModelMeta, 'id'> & { id?: string }): Promise<{ id: string; trackingCode: string }> {
   const id = model.id || uid()
-  // Save to localStorage only (Supabase is down)
+  const trackingCode = generateTrackingCode()
+  // Save as PENDING — admin must approve before it appears in gallery
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS)
-    const models: ModelMeta[] = raw ? JSON.parse(raw) : []
-    const filtered = models.filter(x => x.id !== id)
-    filtered.unshift({ ...model, id, hotspots: (model as any).hotspots ?? [] })
-    localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(filtered))
+    const raw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+    const pending: ModelMeta[] = raw ? JSON.parse(raw) : []
+    const filtered = pending.filter(x => x.id !== id)
+    filtered.unshift({ ...model, id, status: 'pending', trackingCode, hotspots: (model as any).hotspots ?? [] })
+    localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(filtered))
   } catch { /* localStorage not available */ }
-  return id
+  return { id, trackingCode }
 }
 
 export async function deleteModel(id: string): Promise<void> {
@@ -104,6 +105,98 @@ export async function deleteModel(id: string): Promise<void> {
     const models: ModelMeta[] = raw ? JSON.parse(raw) : []
     localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(models.filter(x => x.id !== id)))
   } catch { /* localStorage not available */ }
+}
+
+// ── Pending model review ──
+
+export async function getPendingModels(): Promise<ModelMeta[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+    const all: ModelMeta[] = raw ? JSON.parse(raw) : []
+    // Apply thumbnail overrides
+    const overrides = getThumbnailOverrides()
+    for (const m of all) {
+      if (overrides[m.id]) m.thumbnail = overrides[m.id]
+    }
+    return all
+  } catch { return [] }
+}
+
+export async function approveModel(id: string): Promise<void> {
+  // Move from pending → custom models
+  const pendingRaw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+  const pending: ModelMeta[] = pendingRaw ? JSON.parse(pendingRaw) : []
+  const idx = pending.findIndex(m => m.id === id)
+  if (idx < 0) throw new Error('模型不在待审核列表中')
+
+  const approved = { ...pending[idx], status: 'approved' as const, reviewNote: '', reviewedAt: new Date().toISOString() }
+  pending.splice(idx, 1)
+  localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(pending))
+
+  // Add to custom models
+  const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS)
+  const custom: ModelMeta[] = raw ? JSON.parse(raw) : []
+  custom.unshift(approved)
+  localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(custom))
+
+  // Invalidate built-in cache so it re-merges
+  builtinCache = null
+}
+
+export async function rejectModel(id: string, reason?: string): Promise<void> {
+  const pendingRaw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+  const pending: ModelMeta[] = pendingRaw ? JSON.parse(pendingRaw) : []
+  const idx = pending.findIndex(m => m.id === id)
+  if (idx < 0) throw new Error('模型不在待审核列表中')
+
+  const rejected = {
+    ...pending[idx],
+    status: 'rejected' as const,
+    reviewNote: reason || '',
+    reviewedAt: new Date().toISOString(),
+  }
+  pending.splice(idx, 1)
+  localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(pending))
+
+  // Save to rejected list (keep history)
+  const raw = localStorage.getItem(STORAGE_KEY_REJECTED_MODELS)
+  const rejectedList: ModelMeta[] = raw ? JSON.parse(raw) : []
+  rejectedList.unshift(rejected)
+  localStorage.setItem(STORAGE_KEY_REJECTED_MODELS, JSON.stringify(rejectedList))
+}
+
+export async function getRejectedModels(): Promise<ModelMeta[]> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_REJECTED_MODELS)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+// ── Status lookup for uploaders ──
+
+export async function getModelByTrackingCode(code: string): Promise<ModelMeta | null> {
+  // Search pending
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+    const pending: ModelMeta[] = raw ? JSON.parse(raw) : []
+    const found = pending.find(m => m.trackingCode === code)
+    if (found) return found
+  } catch { /* ignore */ }
+  // Search rejected
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_REJECTED_MODELS)
+    const rejected: ModelMeta[] = raw ? JSON.parse(raw) : []
+    const found = rejected.find(m => m.trackingCode === code)
+    if (found) return found
+  } catch { /* ignore */ }
+  // Search approved (custom models)
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS)
+    const custom: ModelMeta[] = raw ? JSON.parse(raw) : []
+    const found = custom.find(m => m.trackingCode === code)
+    if (found) return found
+  } catch { /* ignore */ }
+  return null
 }
 
 // ── Thumbnail overrides (persisted separately so built-in models can also have custom covers) ──

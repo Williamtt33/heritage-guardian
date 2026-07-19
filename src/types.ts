@@ -23,6 +23,8 @@ export type ProtectionLevel = 'national' | 'provincial' | 'city' | 'district' | 
 
 export type ConservationStatus = 'excellent' | 'good' | 'needs_repair' | 'critical'
 
+export type ModelStatus = 'pending' | 'approved' | 'rejected'
+
 export interface SiteLocation {
   address: string
   district: string
@@ -100,6 +102,14 @@ export interface ModelMeta {
   size: string
   featured: boolean
   hotspots: Hotspot[]
+  status?: ModelStatus
+  /** Uploader info — set when a user uploads a model for review */
+  reporterName?: string
+  reporterContact?: string
+  trackingCode?: string
+  /** Admin review note (e.g. rejection reason) */
+  reviewNote?: string
+  reviewedAt?: string
   initialCameraPosition?: Vector3Like
   initialCameraTarget?: Vector3Like
 
@@ -137,6 +147,16 @@ export const STORAGE_KEY_INITIAL_CAMERA = 'gs_initial_camera_'
 export const STORAGE_KEY_THUMBNAILS = 'gs_thumbnails'
 export const STORAGE_KEY_HERITAGE_META = 'gs_heritage_meta_'
 export const STORAGE_KEY_COMMUNITY_REPORTS = 'gs_community_reports_'
+export const STORAGE_KEY_PENDING_MODELS = 'gs_pending_models'
+export const STORAGE_KEY_REJECTED_MODELS = 'gs_rejected_models'
+
+/** Generate a short human-readable tracking code for uploaders */
+export function generateTrackingCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  return code
+}
 
 // ── Defaults ──
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import type { CommunityReport } from '../types'
-import { getAllReports, submitReport, uploadReportPhoto } from '../store'
+import type { CommunityReport, ModelMeta } from '../types'
+import { getAllReports, submitReport, uploadReportPhoto, getModelByTrackingCode } from '../store'
 import { isSupabaseConfigured } from '../supabase'
 import PointCloudBackground from './PointCloudBackground'
 import ScrollRoller from './ScrollRoller'
@@ -79,7 +79,12 @@ const STATUS_STYLES: Record<CommunityReport['status'], { bg: string; text: strin
 }
 
 export default function Community() {
-  const [tab, setTab] = useState<'reports' | 'submit'>('reports')
+  const [tab, setTab] = useState<'reports' | 'submit' | 'myUploads'>('reports')
+  // Upload status lookup
+  const [lookupCode, setLookupCode] = useState('')
+  const [lookupResult, setLookupResult] = useState<ModelMeta | null>(null)
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [lookupError, setLookupError] = useState('')
   const [reports, setReports] = useState<CommunityReport[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -104,6 +109,26 @@ export default function Community() {
       setLoading(false)
     })
   }, [])
+
+  const handleLookup = async () => {
+    const code = lookupCode.trim().toUpperCase()
+    if (code.length < 8) { setLookupError('请输入完整的 8 位追踪码'); return }
+    setLookupLoading(true)
+    setLookupError('')
+    setLookupResult(null)
+    try {
+      const result = await getModelByTrackingCode(code)
+      if (result) {
+        setLookupResult(result)
+      } else {
+        setLookupError('未找到该追踪码对应的上传记录，请检查追踪码是否正确')
+      }
+    } catch {
+      setLookupError('查询失败，请稍后重试')
+    } finally {
+      setLookupLoading(false)
+    }
+  }
 
   const removePhoto = (idx: number) => {
     setFormPhotos(prev => prev.filter((_, i) => i !== idx))
@@ -188,10 +213,10 @@ export default function Community() {
         {/* Tab bar */}
         <section className="pb-8 animate-fade-up">
           <div className="max-w-4xl mx-auto px-6 sm:px-8">
-            <div className="flex items-center justify-center gap-1 p-1 rounded-xl bg-surface-1 border border-border-1 max-w-xs mx-auto">
+            <div className="flex items-center justify-center gap-1 p-1 rounded-xl bg-surface-1 border border-border-1 max-w-md mx-auto">
               <button
                 onClick={() => setTab('reports')}
-                className={`flex-1 py-2 px-4 rounded-lg text-[13px] font-medium transition-all cursor-pointer border-none ${
+                className={`flex-1 py-2 px-3 rounded-lg text-[12px] font-medium transition-all cursor-pointer border-none ${
                   tab === 'reports' ? 'bg-white text-text-1 shadow-sm' : 'bg-transparent text-text-3/50 hover:text-text-2'
                 }`}
                 style={{ cursor: 'pointer' }}
@@ -200,12 +225,21 @@ export default function Community() {
               </button>
               <button
                 onClick={() => setTab('submit')}
-                className={`flex-1 py-2 px-4 rounded-lg text-[13px] font-medium transition-all cursor-pointer border-none ${
+                className={`flex-1 py-2 px-3 rounded-lg text-[12px] font-medium transition-all cursor-pointer border-none ${
                   tab === 'submit' ? 'bg-white text-text-1 shadow-sm' : 'bg-transparent text-text-3/50 hover:text-text-2'
                 }`}
                 style={{ cursor: 'pointer' }}
               >
                 我要上报
+              </button>
+              <button
+                onClick={() => setTab('myUploads')}
+                className={`flex-1 py-2 px-3 rounded-lg text-[12px] font-medium transition-all cursor-pointer border-none ${
+                  tab === 'myUploads' ? 'bg-white text-text-1 shadow-sm' : 'bg-transparent text-text-3/50 hover:text-text-2'
+                }`}
+                style={{ cursor: 'pointer' }}
+              >
+                我的上传
               </button>
             </div>
           </div>
@@ -355,6 +389,93 @@ export default function Community() {
                     {uploading ? '图片上传中…' : submitting ? '提交中…' : '提交上报'}
                   </button>
                 </div>
+              </div>
+            )}
+            {tab === 'myUploads' && (
+              /* My Uploads — status lookup */
+              <div className="ink-card rounded-2xl p-6 sm:p-8 animate-fade-up">
+                <h2 className="text-[15px] font-semibold text-text-1 mb-1">查询上传进度</h2>
+                <p className="text-[12px] text-text-3/50 mb-6">输入上传时获得的追踪码，查看模型审核状态</p>
+
+                <div className="flex items-center gap-3 mb-5">
+                  <input
+                    type="text"
+                    value={lookupCode}
+                    onChange={e => { setLookupCode(e.target.value.toUpperCase()); setLookupResult(null); setLookupError('') }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleLookup() }}
+                    placeholder="输入 8 位追踪码"
+                    maxLength={8}
+                    className="flex-1 px-4 py-3 rounded-xl text-[14px] font-mono tracking-[0.15em] bg-surface-1 border border-border-1 text-text-1 placeholder:text-text-3/30 outline-none focus:border-accent-1/40 transition-colors text-center"
+                  />
+                  <button
+                    onClick={handleLookup}
+                    disabled={lookupLoading || lookupCode.length < 8}
+                    className="px-5 py-3 rounded-xl text-[13px] font-medium text-white bg-accent-1/80 hover:bg-accent-1 border-none cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ cursor: lookupLoading ? 'not-allowed' : 'pointer' }}
+                  >
+                    {lookupLoading ? '查询中…' : '查询'}
+                  </button>
+                </div>
+
+                {lookupError && (
+                  <div className="px-4 py-3 rounded-xl text-[12px] mb-4"
+                    style={{ background: 'rgba(244,67,54,0.06)', color: '#C62828', border: '1px solid rgba(244,67,54,0.12)' }}>
+                    {lookupError}
+                  </div>
+                )}
+
+                {lookupResult && (
+                  <div className="p-4 rounded-xl" style={{
+                    background: lookupResult.status === 'approved' ? 'rgba(76,175,80,0.06)' :
+                               lookupResult.status === 'rejected' ? 'rgba(244,67,54,0.04)' :
+                               'rgba(255,152,0,0.06)',
+                    border: `1px solid ${lookupResult.status === 'approved' ? 'rgba(76,175,80,0.2)' :
+                                          lookupResult.status === 'rejected' ? 'rgba(244,67,54,0.15)' :
+                                          'rgba(255,152,0,0.15)'}`
+                  }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-[0.03em]" style={
+                        lookupResult.status === 'approved' ? { background: 'rgba(76,175,80,0.12)', color: '#2E7D32' } :
+                        lookupResult.status === 'rejected' ? { background: 'rgba(244,67,54,0.1)', color: '#C62828' } :
+                        { background: 'rgba(255,152,0,0.12)', color: '#E65100' }
+                      }>
+                        {lookupResult.status === 'approved' ? '已通过' :
+                         lookupResult.status === 'rejected' ? '已拒绝' : '审核中'}
+                      </span>
+                      <span className="text-[12px] font-medium text-text-1">{lookupResult.name}</span>
+                    </div>
+                    {lookupResult.description && (
+                      <p className="text-[12px] text-text-3/60 mb-1">{lookupResult.description}</p>
+                    )}
+                    {lookupResult.status === 'approved' && (
+                      <p className="text-[11px] text-status-excellent/70 mt-2">
+                        ✓ 您的场景已审核通过，现已公开展示在数字档案中
+                      </p>
+                    )}
+                    {lookupResult.status === 'pending' && (
+                      <p className="text-[11px] text-status-needs-repair/70 mt-2">
+                        ⏳ 您的场景正在等待管理员审核，请耐心等待
+                      </p>
+                    )}
+                    {lookupResult.status === 'rejected' && (
+                      <div className="mt-2">
+                        <p className="text-[11px] text-accent-3/70">
+                          ✗ 您的场景未通过审核
+                        </p>
+                        {lookupResult.reviewNote && (
+                          <p className="text-[12px] text-text-2 mt-1.5 p-2.5 rounded-lg"
+                            style={{ background: 'rgba(244,67,54,0.04)' }}>
+                            <span className="text-text-3/40">审核意见：</span>{lookupResult.reviewNote}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-4 mt-3 text-[10px] text-text-3/30">
+                      <span>追踪码：{lookupResult.trackingCode}</span>
+                      {lookupResult.reviewedAt && <span>{lookupResult.reviewedAt.slice(0, 10)}</span>}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -35,6 +35,9 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://hrmtdyfxnhqqqzjpljwf.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhybXRkeWZ4bmhxcXF6anBsandmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NjM4MjgsImV4cCI6MjA5ODEzOTgyOH0.DuifAbj_I5TllpgDxiIDy7AZkCvDIM-5a6QrUT8YsXc
 
       - name: Copy 404.html for SPA routing
         run: cp dist/index.html dist/404.html
