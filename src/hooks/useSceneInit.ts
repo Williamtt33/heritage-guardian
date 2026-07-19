@@ -104,6 +104,18 @@ export function useSceneInit({ canvasRef, containerRef, modelSource }: UseSceneI
             setSplatCount(splat.data?.vertexCount ?? 0)
           }
         } else {
+          // Pre-flight check: verify the file is reachable before handing to gsplat
+          try {
+            const headRes = await fetch(modelSource.url, { method: 'HEAD' })
+            if (!headRes.ok) {
+              throw new Error(`模型文件不存在 (HTTP ${headRes.status}): ${modelSource.url}`)
+            }
+          } catch (preflightErr: any) {
+            if (preflightErr.message?.includes('HTTP')) throw preflightErr
+            // Network error — rethrow with URL context
+            throw new Error(`无法连接服务器加载模型: ${modelSource.url}`)
+          }
+
           const splat = await SPLAT.Loader.LoadAsync(
             modelSource.url, localScene as any,
             (p: number) => setProgress(Math.round(p * 100)),
