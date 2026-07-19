@@ -466,7 +466,7 @@ export async function resolveModelSource(
 
   // Relative path → serve from /models/
   const base = import.meta.env.BASE_URL || '/'
-  const url = `${base}models/${file}`
+  const url = `${base}models/${encodeURIComponent(file)}`
   onProgress?.(10)
 
   // SoG files: download + decode to PLY
