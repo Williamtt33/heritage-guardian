@@ -395,15 +395,31 @@ export default function Viewer3D({ modelSource, modelName, modelId, readOnly, do
       </div>
 
       {/* Loading */}
-      {isLoading && <LoadingScreen progress={downloadProgress !== undefined ? Math.max(progress, downloadProgress) : progress} />}
+      {isLoading && <LoadingScreen progress={downloadProgress !== undefined ? Math.max(progress, downloadProgress) : progress} modelName={modelName} />}
 
       {/* Error */}
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
-          <div className="text-center p-8">
-            <div className="text-red-400 text-4xl mb-4">⚠</div>
-            <p className="text-red-300 mb-2 font-semibold">加载失败</p>
-            <p className="text-white/40 text-sm max-w-md">{error}</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-20">
+          <div className="text-center p-8 max-w-sm">
+            <div className="text-5xl mb-5 opacity-70">⚠️</div>
+            <h2 className="text-white/80 text-lg font-semibold mb-2 font-display">加载失败</h2>
+            <p className="text-white/30 text-[13px] leading-relaxed mb-6">{error}</p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => go({ route: 'archive' })}
+                className="px-5 py-2.5 rounded-xl text-[13px] font-medium text-white/80 border border-white/15 bg-transparent cursor-pointer hover:bg-white/[0.04] transition-colors"
+                style={{ cursor: 'pointer' }}
+              >
+                ← 返回档案库
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-5 py-2.5 rounded-xl text-[13px] font-medium text-white bg-accent-1/70 hover:bg-accent-1/80 border-none cursor-pointer transition-colors"
+                style={{ cursor: 'pointer' }}
+              >
+                重新加载
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -522,11 +538,11 @@ export default function Viewer3D({ modelSource, modelName, modelId, readOnly, do
       {/* Time compare overlay */}
       <TimeCompare
         currentImage={compareScreenshot}
-        historicalPhoto={heritageModel?.historicalPhotos?.[0] ? {
-          url: heritageModel.historicalPhotos[0].url,
-          year: heritageModel.historicalPhotos[0].year,
-          caption: heritageModel.historicalPhotos[0].caption,
-        } : null}
+        historicalPhotos={(heritageModel?.historicalPhotos || []).map(p => ({
+          url: p.url,
+          year: p.year,
+          caption: p.caption,
+        }))}
         isOpen={showTimeCompare}
         onClose={() => setShowTimeCompare(false)}
         onCaptureScreenshot={() => {

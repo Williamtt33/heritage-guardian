@@ -49,22 +49,21 @@ export default function About() {
                   三维高斯泼溅（3D Gaussian Splatting，简称 3DGS）是近年来计算机视觉领域的突破性技术。它只需普通相机拍摄的照片，就能在消费级 GPU 甚至浏览器中重建出毫米级精度的三维场景。这使得低成本、大规模、高保真的文化遗产数字化成为可能。
                 </p>
                 <p>
-                  <strong>晶格视界</strong>正是基于 3DGS 技术构建的历史文化街区数字化保护平台。它不仅为历史建筑建立"数字双生"，更将建档、监测、共治、活化四大环节打通，为基层文化治理提供一站式数字化工具。
+                  <strong>晶格视界</strong>正是基于 3DGS 技术构建的历史文化街区数字化保护平台。它不仅为历史建筑建立"数字双生"，更将建档、监测、共治三大环节打通，为基层文化治理提供一站式数字化工具。
                 </p>
               </div>
             </div>
 
-            {/* 2. 四大核心能力 */}
+            {/* 2. 三大核心能力 */}
             <div className="animate-fade-up space-y-5">
               <h2 className="text-2xl sm:text-3xl font-display tracking-tight text-text-1">
                 核心能力
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { icon: '🏛️', title: '数字建档', desc: '3DGS 高精度三维扫描，为每一处历史建筑建立包含结构信息、保护等级、文史档案的完整数字档案，永久保存建筑原貌。' },
-                  { icon: '⏳', title: '时光对比', desc: '修缮前后同屏对比，历史照片与三维现状滑动切换，直观展示街区活化保护的真实成效，让改变看得见。' },
-                  { icon: '🤝', title: '公众共治', desc: '居民与游客共同参与文化遗产保护——上报建筑隐患、分享历史记忆、提出保护建议，构建基层文化治理的数字化桥梁。' },
-                  { icon: '🚩', title: '红色路线', desc: '以数字导览串联红色史迹，将党建教育融入历史文化空间的沉浸式体验，追寻革命足迹，传承红色基因。' },
+                  { icon: '🏛️', title: '数字建档', desc: '3DGS 高精度三维扫描，为每一处历史建筑建立包含结构信息、保护等级、文史档案的完整数字档案。低成本部署，大规模覆盖，永久保存建筑原貌。' },
+                  { icon: '⏳', title: '时光对比', desc: '修缮前后同屏滑动对比，历史照片与三维现状直观切换。让街区的每一次保护修缮都有据可查、有图可证，成效一目了然。' },
+                  { icon: '🤝', title: '公众共治', desc: '居民随手拍上报隐患、游客分享历史记忆、专家在线研判、政府精准决策。打通基层文保的最后一公里，构建共建共治共享的保护新格局。' },
                 ].map(item => (
                   <div key={item.title} className="ink-card rounded-2xl p-5 sm:p-6 space-y-2">
                     <div className="flex items-center gap-2">
@@ -77,24 +76,24 @@ export default function About() {
               </div>
             </div>
 
-            {/* 3. 党建与基层治理 */}
+            {/* 3. 保护闭环 */}
             <div className="animate-fade-up space-y-5">
               <h2 className="text-2xl sm:text-3xl font-display tracking-tight text-text-1">
-                党建与基层文化治理
+                从建档到共治的完整闭环
               </h2>
               <div className="space-y-4 text-[14px] sm:text-[15px] text-text-2/80 leading-[1.85] font-light">
                 <p>
-                  历史文化街区的保护不仅是技术问题，更是基层治理课题。街区内建筑产权复杂、利益主体多元，保护工作需要党组织发挥统筹协调作用，也需要居民的广泛参与。
+                  历史文化街区的保护需要技术支撑，更需要多方参与。晶格视界将数字建档、时光对比、公众共治三大能力串联为一个完整的保护闭环。
                 </p>
                 <ul className="space-y-3 list-none pl-0">
                   {[
-                    { title: '红色路线数字化传承', desc: '将革命遗址、红色史迹以 3D 导览形式串联，为党员教育和群众性主题教育提供沉浸式学习体验。' },
-                    { title: '公众参与共建共治', desc: '基层群众通过平台上报建筑隐患、提供历史线索，形成"党组织引领、专业人员研判、居民参与"的保护治理闭环。' },
-                    { title: '数字化赋能基层决策', desc: '为街道和社区提供辖区文保建筑的可视化总览，辅助修缮优先级排序和资金分配决策。' },
+                    { title: '建档是基础', desc: '通过高精度 3DGS 扫描，为每一处历史建筑建立毫米级精度的数字档案。这是保护工作的起点，也是所有后续应用的数字化底座。', color: '#7C6FF0' },
+                    { title: '对比是手段', desc: '将修缮前后的三维数据与历史影像叠加对比，让保护成效从主观判断变为客观数据。为工程验收、资金审计、学术研究提供可视化依据。', color: '#00C2D9' },
+                    { title: '共治是目标', desc: '通过公众参与机制，让居民、游客、专家、政府在同一平台上协同工作。从隐患发现到专业研判再到修缮落实，形成快速响应的保护治理闭环。', color: '#4CAF50' },
                   ].map((item, i) => (
                     <li key={i} className="flex items-start gap-3">
                       <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
-                        style={{ background: 'rgba(198,40,40,0.1)', color: '#C62828' }}>{i + 1}</span>
+                        style={{ background: `${item.color}15`, color: item.color }}>{i + 1}</span>
                       <span><strong>{item.title}</strong>——{item.desc}</span>
                     </li>
                   ))}
@@ -168,7 +167,7 @@ export default function About() {
             </svg>
             <span className="text-[10px] text-text-3/25 tracking-[0.2em] font-medium self-end"
               style={{ fontFamily: "'Noto Serif SC', serif" }}>
-              党建领航 · 文化传承 · 科技赋能
+              数字建档 · 时光对比 · 公众共治
             </span>
           </div>
         </div>

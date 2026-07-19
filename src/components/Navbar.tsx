@@ -32,7 +32,6 @@ export default function Navbar() {
     { route: 'archive' as const,       label: '数字档案' },
     { route: 'heritage-map' as const,  label: '文保地图' },
     { route: 'community' as const,     label: '公众参与' },
-    { route: 'red-routes' as const,    label: '红色路线' },
     { route: 'about' as const,         label: '关于' },
   ]
 

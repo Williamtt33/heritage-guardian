@@ -5,7 +5,6 @@ import Home from './components/Home'
 import Archive from './components/Archive'
 import HeritageMap from './components/HeritageMap'
 import Community from './components/Community'
-import RedRoutes from './components/RedRoutes'
 import About from './components/About'
 import Admin from './components/Admin'
 import ViewerPage from './components/ViewerPage'
@@ -19,7 +18,6 @@ export type Page =
   | { route: 'archive' }
   | { route: 'heritage-map' }
   | { route: 'community' }
-  | { route: 'red-routes'; routeId?: string }
   | { route: 'about' }
   | { route: 'viewer'; modelId: string; edit?: boolean }
   | { route: 'localViewer' }
@@ -56,10 +54,6 @@ function pageFromHash(): Page {
   if (hash === '/archive' || hash === '/gallery') return { route: 'archive' }
   if (hash === '/heritage-map') return { route: 'heritage-map' }
   if (hash === '/community') return { route: 'community' }
-  if (hash.startsWith('/red-routes')) {
-    const parts = hash.split('/')
-    return { route: 'red-routes', routeId: parts[2] || undefined }
-  }
   if (hash === '/about') return { route: 'about' }
   if (hash === '/local-viewer') return { route: 'localViewer' }
   if (hash.startsWith('/viewer/')) {
@@ -75,7 +69,6 @@ function pageToHash(p: Page): string {
     case 'archive': return '/archive'
     case 'heritage-map': return '/heritage-map'
     case 'community': return '/community'
-    case 'red-routes': return p.routeId ? `/red-routes/${p.routeId}` : '/red-routes'
     case 'about': return '/about'
     case 'viewer': return `/viewer/${p.modelId}${p.edit ? '/edit' : ''}`
     case 'localViewer': return '/local-viewer'
@@ -139,7 +132,6 @@ function PageRenderer({ page }: { page: Page }) {
     case 'archive': return <Archive />
     case 'heritage-map': return <HeritageMap />
     case 'community': return <Community />
-    case 'red-routes': return <RedRoutes routeId={page.routeId} />
     case 'about': return <About />
     case 'viewer': return <ViewerPage modelId={page.modelId} edit={page.edit} />
     case 'localViewer': return <LocalViewerPage />

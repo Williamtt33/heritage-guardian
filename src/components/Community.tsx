@@ -179,7 +179,7 @@ export default function Community() {
                 <span className="gradient-text">公众参与</span>
               </h1>
               <p className="text-text-3/60 text-sm max-w-lg mx-auto">
-                党建引领下的基层文化治理——每位市民都是历史街区的守护者
+                让数据从群众中来，让保护到群众中去——每位市民都是历史街区的守护者
               </p>
             </div>
           </div>

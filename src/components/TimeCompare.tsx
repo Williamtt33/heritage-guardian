@@ -1,14 +1,16 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+
+interface HistoricalPhotoItem {
+  url: string
+  year: string
+  caption: string
+}
 
 interface Props {
   /** Current 3D view screenshot (from canvas.toDataURL) */
   currentImage: string | null
-  /** Historical photo to compare against */
-  historicalPhoto: {
-    url: string
-    year: string
-    caption: string
-  } | null
+  /** Historical photos to compare against */
+  historicalPhotos: HistoricalPhotoItem[]
   /** Left side label (historical) */
   beforeLabel?: string
   /** Right side label (current) */
@@ -20,7 +22,7 @@ interface Props {
 
 export default function TimeCompare({
   currentImage,
-  historicalPhoto,
+  historicalPhotos,
   beforeLabel = '历史影像',
   afterLabel = '现状',
   isOpen,
@@ -28,6 +30,14 @@ export default function TimeCompare({
   onCaptureScreenshot,
 }: Props) {
   const [sliderPos, setSliderPos] = useState(50)
+  const [photoIndex, setPhotoIndex] = useState(0)
+
+  // Reset photo index when panel opens
+  useEffect(() => {
+    if (isOpen) setPhotoIndex(0)
+  }, [isOpen])
+
+  const historicalPhoto = historicalPhotos.length > 0 ? historicalPhotos[Math.min(photoIndex, historicalPhotos.length - 1)] : null
   const containerRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
 
@@ -157,18 +167,21 @@ export default function TimeCompare({
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <div className="text-center">
-              {!historicalPhoto?.url && (
+              {historicalPhotos.length === 0 && (
                 <p className="text-white/30 text-sm mb-3">暂无历史影像可供对比</p>
               )}
-              {historicalPhoto?.url && !hasCurrent && (
+              {historicalPhotos.length > 0 && !historicalPhoto?.url && (
+                <p className="text-white/30 text-sm mb-3">历史影像加载中…</p>
+              )}
+              {historicalPhotos.length > 0 && historicalPhoto?.url && !hasCurrent && (
                 <div className="space-y-4">
-                  <p className="text-white/40 text-sm">点击截图按钮，在左侧显示当前 3D 视角</p>
+                  <p className="text-white/40 text-sm">点击下方按钮，截取当前 3D 视角进行对比</p>
                   <button
                     onClick={onCaptureScreenshot}
                     className="px-5 py-2.5 rounded-xl text-[13px] font-medium text-white bg-accent-1/60 hover:bg-accent-1/80 border-none cursor-pointer transition-colors"
                     style={{ cursor: 'pointer' }}
                   >
-                    截取当前视角
+                    📸 截取当前视角
                   </button>
                 </div>
               )}
@@ -178,11 +191,35 @@ export default function TimeCompare({
       </div>
 
       {/* Bottom caption */}
-      {historicalPhoto && (
-        <div className="px-4 py-2.5 text-center" style={{ background: 'rgba(0,0,0,0.4)' }}>
-          <p className="text-[11px] text-white/50">{historicalPhoto.caption}</p>
+      <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: 'rgba(0,0,0,0.4)' }}>
+        <div className="flex items-center gap-3">
+          {historicalPhotos.length > 1 && (
+            <>
+              <button
+                onClick={() => setPhotoIndex(i => Math.max(0, i - 1))}
+                disabled={photoIndex <= 0}
+                className="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-white disabled:opacity-20 bg-transparent border-none cursor-pointer transition-colors"
+                style={{ cursor: photoIndex <= 0 ? 'default' : 'pointer' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <span className="text-[10px] text-white/30 font-mono">{photoIndex + 1}/{historicalPhotos.length}</span>
+              <button
+                onClick={() => setPhotoIndex(i => Math.min(historicalPhotos.length - 1, i + 1))}
+                disabled={photoIndex >= historicalPhotos.length - 1}
+                className="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-white disabled:opacity-20 bg-transparent border-none cursor-pointer transition-colors"
+                style={{ cursor: photoIndex >= historicalPhotos.length - 1 ? 'default' : 'pointer' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </>
+          )}
         </div>
-      )}
+        {historicalPhoto && (
+          <p className="text-[11px] text-white/50 text-center flex-1">{historicalPhoto.caption}</p>
+        )}
+        <div className="w-16" />
+      </div>
     </div>
   )
 }

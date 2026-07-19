@@ -21,7 +21,7 @@ export default function Footer() {
               </span>
             </div>
             <span className="text-[11px] text-text-3/40">
-              党建领航 · 文化传承 · 科技赋能 — 让历史街区在数字中永续
+              数字建档 · 时光对比 · 公众共治 — 让历史街区在数字中永续
             </span>
           </div>
 
@@ -35,9 +35,6 @@ export default function Footer() {
             </button>
             <button onClick={() => go({ route: 'community' })} className={linkClass} style={{ cursor: 'pointer' }}>
               公众参与
-            </button>
-            <button onClick={() => go({ route: 'red-routes' })} className={linkClass} style={{ cursor: 'pointer' }}>
-              红色路线
             </button>
             <button onClick={() => go({ route: 'about' })} className={linkClass} style={{ cursor: 'pointer' }}>
               关于

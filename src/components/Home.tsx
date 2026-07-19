@@ -24,7 +24,7 @@ const CAPABILITIES = [
       </svg>
     ),
     title: '数字建档',
-    desc: '高精度 3D 高斯泼溅扫描，为每一处历史建筑建立毫米级精度的数字档案，永久保存建筑原貌。',
+    desc: '高精度 3D 高斯泼溅扫描，为每一处历史建筑建立毫米级数字孪生档案。低成本、可复制、永续保存。',
     color: '#7C6FF0',
     route: 'archive' as const,
   },
@@ -38,7 +38,7 @@ const CAPABILITIES = [
       </svg>
     ),
     title: '时光对比',
-    desc: '修缮前后同屏对比，老照片与现状滑动切换，直观展示街区活化保护的真实成效。',
+    desc: '历史影像与 3D 现状同屏滑动对比，修缮前后一目了然。让保护成效数据化、可视化、可追溯。',
     color: '#00C2D9',
     route: 'archive' as const,
   },
@@ -52,20 +52,9 @@ const CAPABILITIES = [
       </svg>
     ),
     title: '公众共治',
-    desc: '居民与游客共同参与，上报建筑隐患、分享历史记忆，构建基层文化治理的数字化桥梁。',
+    desc: '居民随手拍、专家在线研判、政府精准决策。打通基层文保的最后一公里，让每个人成为文化遗产的守护者。',
     color: '#4CAF50',
     route: 'community' as const,
-  },
-  {
-    icon: (
-      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-      </svg>
-    ),
-    title: '红色路线',
-    desc: '以数字导览串联红色史迹，追寻革命足迹，让党建文化在历史空间中生动传承。',
-    color: '#C62828',
-    route: 'red-routes' as const,
   },
 ]
 
@@ -152,11 +141,11 @@ export default function Home() {
             <div className="inline-flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full text-[11px] sm:text-[13px] font-medium tracking-[0.04em] sm:tracking-[0.06em] mb-10 sm:mb-12 max-w-[92vw]"
               style={{ background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(12px)', border: '1px solid rgba(124,111,240,0.12)', color: '#3D4058' }}>
               <span className="w-1.5 h-1.5 rounded-full bg-accent-1/60 animate-pulse shrink-0" />
-              <span>党建引领</span>
+              <span>高精度扫描</span>
               <span className="opacity-20">·</span>
-              <span>文化传承</span>
+              <span>时光对比</span>
               <span className="opacity-20">·</span>
-              <span>公众参与</span>
+              <span>全民共治</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[88px] font-display leading-[1.25] sm:leading-[1.18] mb-8 sm:mb-10 tracking-tight">
@@ -165,7 +154,7 @@ export default function Home() {
             <p className="text-sm sm:text-lg text-text-2 max-w-xl mx-auto mb-10 sm:mb-14 leading-[1.8] font-light">
               高精度三维扫描与实时渲染，为每一处历史建筑建立永恒的数字档案。
               <br />
-              <span className="text-text-3/60">基层治理的数字化工具，文化遗产的云端守护者。</span>
+              <span className="text-text-3/60">从建档到对比、从监测到共治——文化遗产保护的一站式数字化平台。</span>
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-5 sm:gap-12">
@@ -180,9 +169,6 @@ export default function Home() {
               <div className="flex items-center gap-6 sm:gap-8">
                 <button onClick={() => go({ route: 'heritage-map' })} className="text-[13px] text-text-2/60 hover:text-text-1 transition-colors duration-300 bg-transparent border-none cursor-pointer">
                   文保地图
-                </button>
-                <button onClick={() => go({ route: 'red-routes' })} className="text-[13px] text-text-2/60 hover:text-text-1 transition-colors duration-300 bg-transparent border-none cursor-pointer">
-                  红色路线
                 </button>
                 <input
                   ref={fileInputRef}
@@ -209,14 +195,14 @@ export default function Home() {
           <div className="max-w-5xl mx-auto px-6 lg:px-10">
             <div className="text-center mb-14 sm:mb-18 animate-fade-up">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-display tracking-tight mb-5 leading-[1.25]">
-                <span className="gradient-text">四大核心能力</span>
+                <span className="gradient-text">三大核心能力</span>
               </h2>
               <p className="text-text-3 text-base max-w-lg mx-auto font-light leading-[1.8]">
                 从数字建档到公众共治，构建完整的历史文化街区活化保护闭环
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6">
               {CAPABILITIES.map((cap, i) => (
                 <button
                   key={cap.title}
@@ -316,7 +302,7 @@ export default function Home() {
             </svg>
             <span className="text-[10px] text-text-3/25 tracking-[0.2em] font-medium self-end"
               style={{ fontFamily: "'Noto Serif SC', serif" }}>
-              党建领航 · 文化传承 · 科技赋能
+              数字建档 · 时光对比 · 公众共治
             </span>
           </div>
         </div>
