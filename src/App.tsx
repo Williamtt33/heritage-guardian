@@ -127,14 +127,22 @@ export default function App() {
 }
 
 function PageRenderer({ page }: { page: Page }) {
-  switch (page.route) {
-    case 'home': return <Home />
-    case 'archive': return <Archive />
-    case 'heritage-map': return <HeritageMap />
-    case 'community': return <Community />
-    case 'about': return <About />
-    case 'viewer': return <ViewerPage modelId={page.modelId} edit={page.edit} />
-    case 'localViewer': return <LocalViewerPage />
-    case 'admin': return <Admin />
-  }
+  const key = page.route === 'viewer' ? `viewer-${page.modelId}` : page.route
+  const content = (() => {
+    switch (page.route) {
+      case 'home': return <Home />
+      case 'archive': return <Archive />
+      case 'heritage-map': return <HeritageMap />
+      case 'community': return <Community />
+      case 'about': return <About />
+      case 'viewer': return <ViewerPage modelId={page.modelId} edit={page.edit} />
+      case 'localViewer': return <LocalViewerPage />
+      case 'admin': return <Admin />
+    }
+  })()
+  return (
+    <div key={key} style={{ animation: 'scale-in 0.35s ease-out both' }}>
+      {content}
+    </div>
+  )
 }

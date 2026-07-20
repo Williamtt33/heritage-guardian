@@ -87,8 +87,22 @@ export default function Community() {
   const [lookupError, setLookupError] = useState('')
   const [reports, setReports] = useState<CommunityReport[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Form state
+  const loadReports = () => {
+    setLoadError(null)
+    setLoading(true)
+    getAllReports().then(all => {
+      if (all.length === 0) all = DEMO_REPORTS
+      setReports(all)
+      setLoading(false)
+    }).catch(err => {
+      setLoadError(err.message || '加载失败')
+      setLoading(false)
+    })
+  }
+
+  useEffect(() => { loadReports() }, [])
   const [formTitle, setFormTitle] = useState('')
   const [formDesc, setFormDesc] = useState('')
   const [formCategory, setFormCategory] = useState<CommunityReport['category']>('damage')
@@ -98,17 +112,6 @@ export default function Community() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    getAllReports().then(all => {
-      // If no reports at all, seed with demo data
-      if (all.length === 0) {
-        all = DEMO_REPORTS
-      }
-      setReports(all)
-      setLoading(false)
-    })
-  }, [])
 
   const handleLookup = async () => {
     const code = lookupCode.trim().toUpperCase()
@@ -255,9 +258,18 @@ export default function Community() {
                 <div className="flex items-center justify-center py-20">
                   <div className="w-8 h-8 border-2 border-white/[0.06] border-t-accent-1 rounded-full animate-spin" />
                 </div>
+              ) : loadError ? (
+                <div className="text-center py-20 animate-fade-up">
+                  <p className="text-text-3/40 text-sm mb-3">数据加载失败</p>
+                  <button onClick={loadReports}
+                    className="px-4 py-2 rounded-xl text-[12px] text-accent-1/70 hover:text-accent-1 border border-accent-1/20 hover:border-accent-1/40 bg-transparent cursor-pointer transition-colors"
+                    style={{ cursor: 'pointer' }}>重试</button>
+                </div>
               ) : reports.length === 0 ? (
-                <div className="text-center py-20">
+                <div className="text-center py-20 animate-fade-up">
+                  <div className="text-4xl mb-4 opacity-30">📋</div>
                   <p className="text-text-3/40 text-sm">暂无上报记录</p>
+                  <p className="text-text-3/25 text-xs mt-1">前往「我要上报」提交第一条</p>
                 </div>
               ) : (
                 <div className="space-y-4">

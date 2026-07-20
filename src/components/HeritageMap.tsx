@@ -17,14 +17,19 @@ export default function HeritageMap() {
   const { go } = usePage()
   const [models, setModels] = useState<ModelMeta[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedDistrict, setSelectedDistrict] = useState<string>('')
 
-  useEffect(() => {
+  const load = () => {
+    setLoadError(null)
+    setLoading(true)
     getAllModels()
       .then(setModels)
-      .catch(() => {})
+      .catch(err => setLoadError(err.message || '加载失败'))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
 
   const districts = useMemo(() => {
     const seen = new Set<string>()
@@ -136,9 +141,22 @@ export default function HeritageMap() {
               <div className="flex items-center justify-center py-40">
                 <div className="w-8 h-8 border-2 border-white/[0.06] border-t-accent-1 rounded-full animate-spin" />
               </div>
+            ) : loadError ? (
+              <div className="text-center py-40 animate-fade-up">
+                <p className="text-text-3/40 text-sm mb-3">数据加载失败</p>
+                <button onClick={load}
+                  className="px-4 py-2 rounded-xl text-[12px] text-accent-1/70 hover:text-accent-1 border border-accent-1/20 hover:border-accent-1/40 bg-transparent cursor-pointer transition-colors"
+                  style={{ cursor: 'pointer' }}>重试</button>
+              </div>
             ) : filtered.length === 0 ? (
-              <div className="text-center py-40">
-                <p className="text-text-3/40 text-sm">该区域暂无收录建筑</p>
+              <div className="text-center py-40 animate-fade-up">
+                <div className="text-4xl mb-4 opacity-30">🗺️</div>
+                <p className="text-text-3/40 text-sm">{selectedDistrict ? `「${selectedDistrict}」暂无收录建筑` : '暂无文保建筑数据'}</p>
+                {selectedDistrict && (
+                  <button onClick={() => setSelectedDistrict('')}
+                    className="mt-3 text-[12px] text-accent-1/70 hover:text-accent-1 bg-transparent border-none cursor-pointer transition-colors"
+                    style={{ cursor: 'pointer' }}>← 查看全部区域</button>
+                )}
               </div>
             ) : (
               <div className="space-y-4">

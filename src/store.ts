@@ -12,6 +12,77 @@ function warn(msg: string, err?: unknown) {
   console.warn(`[store] ${msg}`, err ?? '')
 }
 
+/** Race a promise against a timeout — returns null if it takes too long. Accepts any thenable (including Supabase builders). */
+async function withTimeout<T>(thenable: any, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), ms) })
+  try {
+    const result = await Promise.race([Promise.resolve(thenable), timeout])
+    clearTimeout(timer!)
+    return result as T | null
+  } catch {
+    clearTimeout(timer!)
+    return null
+  }
+}
+
+/** Supabase query timeout — short for reads (pages must load fast), longer for writes */
+const SUPABASE_READ_TIMEOUT = 3000
+const SUPABASE_WRITE_TIMEOUT = 8000
+
+// ── Supabase row ↔ ModelMeta mappers ──
+
+function mapModelFromDB(db: any): ModelMeta {
+  return {
+    id: db.id,
+    name: db.name,
+    description: db.description ?? '',
+    file: db.file,
+    thumbnail: db.thumbnail ?? '',
+    tags: db.tags ?? [],
+    pointCount: db.point_count ?? '',
+    size: db.size ?? '',
+    featured: db.featured ?? false,
+    hotspots: [],
+    status: db.status ?? 'approved',
+    reporterName: db.reporter_name ?? undefined,
+    reporterContact: db.reporter_contact ?? undefined,
+    trackingCode: db.tracking_code ?? undefined,
+    reviewNote: db.review_note ?? undefined,
+    reviewedAt: db.reviewed_at ?? undefined,
+    protectionLevel: db.protection_level ?? undefined,
+    constructionYear: db.construction_year ?? undefined,
+    architecturalStyle: db.architectural_style ?? undefined,
+    conservationStatus: db.conservation_status ?? undefined,
+    location: db.location ?? undefined,
+  }
+}
+
+function mapModelToDB(m: ModelMeta): Record<string, unknown> {
+  return {
+    id: m.id,
+    name: m.name,
+    description: m.description,
+    file: m.file,
+    thumbnail: m.thumbnail || null,
+    tags: m.tags ?? [],
+    point_count: m.pointCount || null,
+    size: m.size || null,
+    featured: m.featured ?? false,
+    status: m.status ?? 'approved',
+    tracking_code: m.trackingCode ?? null,
+    reporter_name: m.reporterName ?? null,
+    reporter_contact: m.reporterContact ?? null,
+    review_note: m.reviewNote ?? null,
+    reviewed_at: m.reviewedAt ?? null,
+    protection_level: m.protectionLevel ?? null,
+    construction_year: m.constructionYear ?? null,
+    architectural_style: m.architecturalStyle ?? null,
+    conservation_status: m.conservationStatus ?? 'good',
+    location: m.location ? JSON.stringify(m.location) : null,
+  }
+}
+
 // ── Built-in models (static manifest) ──
 
 let builtinCache: ModelMeta[] | null = null
@@ -36,19 +107,37 @@ export async function getBuiltinModels(): Promise<ModelMeta[]> {
 
 export async function getAllModels(): Promise<ModelMeta[]> {
   const builtin = await getBuiltinModels()
-  // Merge custom models from localStorage
+  const seen = new Set(builtin.map(m => m.id))
+  const all = [...builtin]
+
+  // 1. Fetch approved models from Supabase (with timeout — don't block page load)
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await withTimeout(
+        supabase.from('models').select('*').eq('status', 'approved').order('created_at', { ascending: false }),
+        SUPABASE_READ_TIMEOUT,
+      )
+      if (result && !(result as any).error && (result as any).data) {
+        for (const db of (result as any).data as any[]) {
+          const m = mapModelFromDB(db)
+          if (seen.has(m.id)) continue
+          if (!m.file || m.file.trim() === '') continue
+          seen.add(m.id)
+          all.push(m)
+        }
+      }
+    } catch (e) { warn('Supabase 模型加载失败，使用本地缓存', e) }
+  }
+
+  // 2. Merge custom models from localStorage
   let custom: ModelMeta[] = []
   let needsCleanup = false
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS)
     custom = raw ? JSON.parse(raw) : []
   } catch { /* localStorage not available */ }
-  // Deduplicate by id (builtin takes precedence), filter out obviously stale entries
-  const seen = new Set(builtin.map(m => m.id))
-  const all = [...builtin]
   for (const m of custom) {
     if (seen.has(m.id)) continue
-    // Skip obvious stale entries (models referencing deleted full-size files)
     if (!m.file || m.file.trim() === '') { needsCleanup = true; continue }
     if (/\bfull\b/i.test(m.id) || /\bfull\b/i.test(m.file)) { needsCleanup = true; continue }
     seen.add(m.id)
@@ -88,12 +177,27 @@ export async function getModelById(id: string): Promise<ModelMeta | null> {
 export async function saveModel(model: Omit<ModelMeta, 'id'> & { id?: string }): Promise<{ id: string; trackingCode: string }> {
   const id = model.id || uid()
   const trackingCode = generateTrackingCode()
-  // Save as PENDING — admin must approve before it appears in gallery
+  const full: ModelMeta = { ...model, id, status: 'pending', trackingCode, hotspots: (model as any).hotspots ?? [] }
+
+  // Save to Supabase if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const row = mapModelToDB(full)
+      const result = await withTimeout(
+        supabase.from('models').upsert(row, { onConflict: 'id' }),
+        SUPABASE_WRITE_TIMEOUT,
+      )
+      if (result && !(result as any).error) return { id, trackingCode }
+      if (result) warn('Supabase 保存失败，降级到本地', (result as any).error)
+    } catch (e) { warn('Supabase 保存异常', e) }
+  }
+
+  // localStorage fallback
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
     const pending: ModelMeta[] = raw ? JSON.parse(raw) : []
     const filtered = pending.filter(x => x.id !== id)
-    filtered.unshift({ ...model, id, status: 'pending', trackingCode, hotspots: (model as any).hotspots ?? [] })
+    filtered.unshift(full)
     localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(filtered))
   } catch { /* localStorage not available */ }
   return { id, trackingCode }
@@ -110,10 +214,38 @@ export async function deleteModel(id: string): Promise<void> {
 // ── Pending model review ──
 
 export async function getPendingModels(): Promise<ModelMeta[]> {
+  // Supabase first (with timeout)
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await withTimeout(
+        supabase.from('models').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
+        SUPABASE_READ_TIMEOUT,
+      )
+      if (result && !(result as any).error && (result as any).data) {
+        const cloud = ((result as any).data as any[]).map(mapModelFromDB)
+        const seen = new Set(cloud.map(m => m.id))
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+          if (raw) {
+            const local: ModelMeta[] = JSON.parse(raw)
+            for (const m of local) {
+              if (!seen.has(m.id)) { seen.add(m.id); cloud.push(m) }
+            }
+          }
+        } catch { /* ignore */ }
+        const overrides = getThumbnailOverrides()
+        for (const m of cloud) {
+          if (overrides[m.id]) m.thumbnail = overrides[m.id]
+        }
+        return cloud
+      }
+    } catch (e) { warn('Supabase 待审核查询失败', e) }
+  }
+
+  // localStorage fallback
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
     const all: ModelMeta[] = raw ? JSON.parse(raw) : []
-    // Apply thumbnail overrides
     const overrides = getThumbnailOverrides()
     for (const m of all) {
       if (overrides[m.id]) m.thumbnail = overrides[m.id]
@@ -123,80 +255,187 @@ export async function getPendingModels(): Promise<ModelMeta[]> {
 }
 
 export async function approveModel(id: string): Promise<void> {
-  // Move from pending → custom models
-  const pendingRaw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
-  const pending: ModelMeta[] = pendingRaw ? JSON.parse(pendingRaw) : []
-  const idx = pending.findIndex(m => m.id === id)
-  if (idx < 0) throw new Error('模型不在待审核列表中')
+  const now = new Date().toISOString()
 
-  const approved = { ...pending[idx], status: 'approved' as const, reviewNote: '', reviewedAt: new Date().toISOString() }
-  pending.splice(idx, 1)
-  localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(pending))
+  // Supabase: update status
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await withTimeout(
+        supabase.from('models').update({ status: 'approved', review_note: '', reviewed_at: now }).eq('id', id),
+        SUPABASE_WRITE_TIMEOUT,
+      )
+      if (result && !(result as any).error) {
+        // Also clean up localStorage copies
+        try {
+          const pendingRaw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+          if (pendingRaw) {
+            const pending: ModelMeta[] = JSON.parse(pendingRaw)
+            localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(pending.filter(m => m.id !== id)))
+          }
+        } catch { /* ignore */ }
+        builtinCache = null
+        return
+      }
+      warn('Supabase 审核失败，降级到本地', (result as any)?.error)
+    } catch (e) { warn('Supabase 审核异常', e) }
+  }
 
-  // Add to custom models
-  const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS)
-  const custom: ModelMeta[] = raw ? JSON.parse(raw) : []
-  custom.unshift(approved)
-  localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(custom))
+  // localStorage fallback — same as above but fall through from Supabase timeout/error
+  {
+    const pendingRaw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+    const pending: ModelMeta[] = pendingRaw ? JSON.parse(pendingRaw) : []
+    const idx = pending.findIndex(m => m.id === id)
+    if (idx < 0) throw new Error('模型不在待审核列表中')
 
-  // Invalidate built-in cache so it re-merges
-  builtinCache = null
+    const approved = { ...pending[idx], status: 'approved' as const, reviewNote: '', reviewedAt: now }
+    pending.splice(idx, 1)
+    localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(pending))
+
+    const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS)
+    const custom: ModelMeta[] = raw ? JSON.parse(raw) : []
+    custom.unshift(approved)
+    localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(custom))
+
+    builtinCache = null
+  }
 }
 
 export async function rejectModel(id: string, reason?: string): Promise<void> {
-  const pendingRaw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
-  const pending: ModelMeta[] = pendingRaw ? JSON.parse(pendingRaw) : []
-  const idx = pending.findIndex(m => m.id === id)
-  if (idx < 0) throw new Error('模型不在待审核列表中')
+  const now = new Date().toISOString()
 
-  const rejected = {
-    ...pending[idx],
-    status: 'rejected' as const,
-    reviewNote: reason || '',
-    reviewedAt: new Date().toISOString(),
+  // Supabase: update status
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await withTimeout(
+        supabase.from('models').update({ status: 'rejected', review_note: reason || '', reviewed_at: now }).eq('id', id),
+        SUPABASE_WRITE_TIMEOUT,
+      )
+      if (result && !(result as any).error) {
+        // Clean up localStorage pending
+        try {
+          const pendingRaw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+          if (pendingRaw) {
+            const pending: ModelMeta[] = JSON.parse(pendingRaw)
+            localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(pending.filter(m => m.id !== id)))
+          }
+        } catch { /* ignore */ }
+        return
+      }
+      warn('Supabase 拒绝操作失败，降级到本地', (result as any)?.error)
+    } catch (e) { warn('Supabase 拒绝操作异常', e) }
   }
-  pending.splice(idx, 1)
-  localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(pending))
 
-  // Save to rejected list (keep history)
-  const raw = localStorage.getItem(STORAGE_KEY_REJECTED_MODELS)
-  const rejectedList: ModelMeta[] = raw ? JSON.parse(raw) : []
-  rejectedList.unshift(rejected)
-  localStorage.setItem(STORAGE_KEY_REJECTED_MODELS, JSON.stringify(rejectedList))
+  // localStorage fallback
+  {
+    const pendingRaw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
+    const pending: ModelMeta[] = pendingRaw ? JSON.parse(pendingRaw) : []
+    const idx = pending.findIndex(m => m.id === id)
+    if (idx < 0) throw new Error('模型不在待审核列表中')
+
+    const rejected = {
+      ...pending[idx],
+      status: 'rejected' as const,
+      reviewNote: reason || '',
+      reviewedAt: now,
+    }
+    pending.splice(idx, 1)
+    localStorage.setItem(STORAGE_KEY_PENDING_MODELS, JSON.stringify(pending))
+
+    const raw = localStorage.getItem(STORAGE_KEY_REJECTED_MODELS)
+    const rejectedList: ModelMeta[] = raw ? JSON.parse(raw) : []
+    rejectedList.unshift(rejected)
+    localStorage.setItem(STORAGE_KEY_REJECTED_MODELS, JSON.stringify(rejectedList))
+  }
 }
 
 export async function getRejectedModels(): Promise<ModelMeta[]> {
+  // Supabase first (with timeout)
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await withTimeout(
+        supabase.from('models').select('*').eq('status', 'rejected').order('reviewed_at', { ascending: false }),
+        SUPABASE_READ_TIMEOUT,
+      )
+      if (result && !(result as any).error && (result as any).data) {
+        const cloud = ((result as any).data as any[]).map(mapModelFromDB)
+        const seen = new Set(cloud.map(m => m.id))
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY_REJECTED_MODELS)
+          if (raw) {
+            const local: ModelMeta[] = JSON.parse(raw)
+            for (const m of local) {
+              if (!seen.has(m.id)) { seen.add(m.id); cloud.push(m) }
+            }
+          }
+        } catch { /* ignore */ }
+        return cloud
+      }
+    } catch (e) { warn('Supabase 已拒绝查询失败', e) }
+  }
+
+  // localStorage fallback
   try {
     const raw = localStorage.getItem(STORAGE_KEY_REJECTED_MODELS)
     return raw ? JSON.parse(raw) : []
   } catch { return [] }
 }
 
-// ── Status lookup for uploaders ──
+/** Admin direct add — skips review queue, model is immediately approved */
+export async function saveModelDirect(model: Omit<ModelMeta, 'id'> & { id?: string }): Promise<{ id: string }> {
+  const id = model.id || uid()
+  const full: ModelMeta = { ...model, id, status: 'approved', hotspots: (model as any).hotspots ?? [] }
 
-export async function getModelByTrackingCode(code: string): Promise<ModelMeta | null> {
-  // Search pending
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_PENDING_MODELS)
-    const pending: ModelMeta[] = raw ? JSON.parse(raw) : []
-    const found = pending.find(m => m.trackingCode === code)
-    if (found) return found
-  } catch { /* ignore */ }
-  // Search rejected
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_REJECTED_MODELS)
-    const rejected: ModelMeta[] = raw ? JSON.parse(raw) : []
-    const found = rejected.find(m => m.trackingCode === code)
-    if (found) return found
-  } catch { /* ignore */ }
-  // Search approved (custom models)
+  if (isSupabaseConfigured()) {
+    try {
+      const row = mapModelToDB(full)
+      const result = await withTimeout(
+        supabase.from('models').upsert(row, { onConflict: 'id' }),
+        SUPABASE_WRITE_TIMEOUT,
+      )
+      if (result && !(result as any).error) {
+        builtinCache = null
+        return { id }
+      }
+      warn('Supabase 直接保存失败，降级到本地', (result as any)?.error)
+    } catch (e) { warn('Supabase 直接保存异常', e) }
+  }
+
+  // localStorage fallback
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS)
     const custom: ModelMeta[] = raw ? JSON.parse(raw) : []
-    const found = custom.find(m => m.trackingCode === code)
-    if (found) return found
-  } catch { /* ignore */ }
-  return null
+    custom.unshift(full)
+    localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(custom))
+    builtinCache = null
+  } catch { /* localStorage not available */ }
+  return { id }
+}
+
+// ── Status lookup for uploaders ──
+
+export async function getModelByTrackingCode(code: string): Promise<ModelMeta | null> {
+  // Supabase first (with timeout)
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await withTimeout(
+        supabase.from('models').select('*').eq('tracking_code', code).maybeSingle(),
+        SUPABASE_READ_TIMEOUT,
+      )
+      if (result && !(result as any).error && (result as any).data) return mapModelFromDB((result as any).data)
+    } catch (e) { warn('Supabase 追踪码查询失败', e) }
+  }
+
+  // localStorage fallback: search all storage keys
+  const searchLocal = (key: string): ModelMeta | null => {
+    try {
+      const raw = localStorage.getItem(key)
+      const list: ModelMeta[] = raw ? JSON.parse(raw) : []
+      return list.find(m => m.trackingCode === code) ?? null
+    } catch { return null }
+  }
+  return searchLocal(STORAGE_KEY_PENDING_MODELS)
+    ?? searchLocal(STORAGE_KEY_REJECTED_MODELS)
+    ?? searchLocal(STORAGE_KEY_CUSTOM_MODELS)
 }
 
 // ── Thumbnail overrides (persisted separately so built-in models can also have custom covers) ──
@@ -219,16 +458,20 @@ export function setThumbnailOverride(modelId: string, url: string): void {
 export async function getHotspots(modelId: string): Promise<Hotspot[]> {
   if (isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase.from('hotspots').select('*').eq('model_id', modelId).order('sort_order', { ascending: true })
-      if (error) throw error
-      return ((data ?? []) as any[]).map((db: any) => ({
-        id: db.id,
-        position: { x: db.position_x, y: db.position_y, z: db.position_z },
-        title: db.title, description: db.description, note: db.note ?? '',
-        order: db.sort_order,
-        cameraPosition: { x: db.camera_pos_x, y: db.camera_pos_y, z: db.camera_pos_z },
-        cameraTarget: { x: db.camera_tgt_x, y: db.camera_tgt_y, z: db.camera_tgt_z },
-      }))
+      const result = await withTimeout(
+        supabase.from('hotspots').select('*').eq('model_id', modelId).order('sort_order', { ascending: true }),
+        SUPABASE_READ_TIMEOUT,
+      )
+      if (result && !(result as any).error) {
+        return (((result as any).data ?? []) as any[]).map((db: any) => ({
+          id: db.id,
+          position: { x: db.position_x, y: db.position_y, z: db.position_z },
+          title: db.title, description: db.description, note: db.note ?? '',
+          order: db.sort_order,
+          cameraPosition: { x: db.camera_pos_x, y: db.camera_pos_y, z: db.camera_pos_z },
+          cameraTarget: { x: db.camera_tgt_x, y: db.camera_tgt_y, z: db.camera_tgt_z },
+        }))
+      }
     } catch (e) {
       warn('云端标注加载失败，使用本地缓存', e)
     }
@@ -271,15 +514,24 @@ export async function saveHotspots(modelId: string, hotspots: Hotspot[]): Promis
 export async function getCameraPaths(modelId: string): Promise<CameraPath[]> {
   if (isSupabaseConfigured()) {
     try {
-      const { data: paths, error } = await supabase.from('camera_paths').select('*').eq('model_id', modelId).order('created_at', { ascending: true })
-      if (!error && paths?.length) {
-        const pathIds = (paths as any[]).map((p: any) => p.id)
-        const { data: kfs } = await supabase.from('keyframes').select('*').in('path_id', pathIds).order('sort_order', { ascending: true })
+      const result = await withTimeout(
+        supabase.from('camera_paths').select('*').eq('model_id', modelId).order('created_at', { ascending: true }),
+        SUPABASE_READ_TIMEOUT,
+      )
+      if (result && !(result as any).error && ((result as any).data as any[])?.length) {
+        const paths = (result as any).data as any[]
+        const pathIds = paths.map((p: any) => p.id)
+        const kfResult = await withTimeout(
+          supabase.from('keyframes').select('*').in('path_id', pathIds).order('sort_order', { ascending: true }),
+          SUPABASE_READ_TIMEOUT,
+        )
         const kfMap = new Map<string, any[]>()
-        for (const kf of (kfs ?? []) as any[]) {
-          const arr = kfMap.get(kf.path_id) ?? []; arr.push(kf); kfMap.set(kf.path_id, arr)
+        if (kfResult && !(kfResult as any).error) {
+          for (const kf of ((kfResult as any).data ?? []) as any[]) {
+            const arr = kfMap.get(kf.path_id) ?? []; arr.push(kf); kfMap.set(kf.path_id, arr)
+          }
         }
-        return (paths as any[]).map((p: any) => ({
+        return paths.map((p: any) => ({
           id: p.id, name: p.name,
           keyframes: (kfMap.get(p.id) ?? []).map((kf: any) => ({
             id: kf.id,
@@ -389,12 +641,12 @@ const REPORTS_KEY = STORAGE_KEY_COMMUNITY_REPORTS + '_global'
 export async function getAllReports(): Promise<CommunityReport[]> {
   if (isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
-        .from('community_reports')
-        .select('*')
-        .order('created_at', { ascending: false })
-      if (!error && data) {
-        return (data as any[]).map(mapReportFromDB)
+      const result = await withTimeout(
+        supabase.from('community_reports').select('*').order('created_at', { ascending: false }),
+        SUPABASE_READ_TIMEOUT,
+      )
+      if (result && !(result as any).error && (result as any).data) {
+        return ((result as any).data as any[]).map(mapReportFromDB)
       }
     } catch (e) { warn('云端上报加载失败，使用本地缓存', e) }
   }
@@ -437,9 +689,12 @@ export async function submitReport(report: Omit<CommunityReport, 'id' | 'created
 
   if (isSupabaseConfigured()) {
     try {
-      const { error } = await supabase.from('community_reports').insert(mapReportToDB(full))
-      if (error) throw error
-      return full
+      const result = await withTimeout(
+        supabase.from('community_reports').insert(mapReportToDB(full)),
+        SUPABASE_WRITE_TIMEOUT,
+      )
+      if (result && !(result as any).error) return full
+      if (result) warn('云端上报提交失败，保存到本地', (result as any).error)
     } catch (e) {
       warn('云端上报提交失败，保存到本地', e)
     }

@@ -117,7 +117,7 @@ export default function About() {
                     { label: '样式方案', value: 'Tailwind CSS 4' },
                     { label: '构建工具', value: 'Vite 8' },
                     { label: '数据格式', value: '.splat / .ply' },
-                    { label: '部署平台', value: 'GitHub Pages' },
+                    { label: '部署平台', value: 'Vercel' },
                   ].map(t => (
                     <div key={t.label}>
                       <p className="text-[10px] text-text-3/40 mb-1">{t.label}</p>

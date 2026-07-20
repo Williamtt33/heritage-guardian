@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { usePage } from '../App'
 import { useToast } from './Toast'
-import { getAllModels, deleteModel, setThumbnailOverride, uploadThumbnail, getAllReports, updateReportStatus, deleteReport, getPendingModels, approveModel, rejectModel, getRejectedModels } from '../store'
+import { getAllModels, deleteModel, setThumbnailOverride, uploadThumbnail, getAllReports, updateReportStatus, deleteReport, getPendingModels, approveModel, rejectModel, getRejectedModels, saveModelDirect, saveHeritageMeta } from '../store'
 import { supabase, isSupabaseConfigured } from '../supabase'
-import type { ModelMeta, CommunityReport } from '../types'
+import type { ModelMeta, CommunityReport, HistoricalPhoto, ArchiveDocument, RepairRecord, RedCultureMark } from '../types'
+import { PROTECTION_LEVEL_LABELS, CONSERVATION_STATUS_LABELS } from '../types'
+import type { HeritageMeta } from '../store'
 import HeritageEditor from './HeritageEditor'
 
 export default function Admin() {
@@ -29,6 +31,27 @@ export default function Admin() {
   const [rejectReason, setRejectReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // ── Add model state ──
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addTab, setAddTab] = useState<'basic' | 'heritage' | 'photos' | 'docs' | 'repairs' | 'red'>('basic')
+  const [addSaving, setAddSaving] = useState(false)
+  const [addForm, setAddForm] = useState({
+    name: '', description: '', file: '', thumbnail: '', pointCount: '', size: '',
+    featured: false, tags: '',
+    protectionLevel: 'none' as HeritageMeta['protectionLevel'],
+    constructionYear: '', architecturalStyle: '',
+    conservationStatus: 'good' as HeritageMeta['conservationStatus'],
+    locationAddress: '', locationDistrict: '', locationLat: '0', locationLng: '0',
+    historicalPhotos: [] as HistoricalPhoto[],
+    documents: [] as ArchiveDocument[],
+    repairRecords: [] as RepairRecord[],
+    redCultureMarks: [] as RedCultureMark[],
+  })
+
+  function uid(): string {
+    return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  }
 
   const load = useCallback(() => {
     setLoading(true)
@@ -161,6 +184,69 @@ export default function Admin() {
     }
   }
 
+  const handleAddSave = async () => {
+    if (!addForm.name.trim() || !addForm.file.trim()) {
+      addToast('请至少填写名称和文件路径', 'error')
+      return
+    }
+    setAddSaving(true)
+    try {
+      const modelId = addForm.name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      const tags = addForm.tags.split(',').map(t => t.trim()).filter(Boolean)
+
+      // Save model directly as approved
+      await saveModelDirect({
+        id: modelId,
+        name: addForm.name.trim(),
+        description: addForm.description.trim(),
+        file: addForm.file.trim(),
+        thumbnail: addForm.thumbnail.trim(),
+        pointCount: addForm.pointCount.trim(),
+        size: addForm.size.trim(),
+        featured: addForm.featured,
+        tags,
+        hotspots: [],
+      })
+
+      // Save heritage metadata
+      const loc = addForm.locationAddress.trim() || addForm.locationDistrict.trim()
+        ? {
+            address: addForm.locationAddress.trim(),
+            district: addForm.locationDistrict.trim(),
+            lat: parseFloat(addForm.locationLat) || 0,
+            lng: parseFloat(addForm.locationLng) || 0,
+          }
+        : undefined
+      saveHeritageMeta(modelId, {
+        protectionLevel: addForm.protectionLevel === 'none' ? undefined : addForm.protectionLevel,
+        constructionYear: addForm.constructionYear.trim() || undefined,
+        architecturalStyle: addForm.architecturalStyle.trim() || undefined,
+        conservationStatus: addForm.conservationStatus,
+        location: loc,
+        historicalPhotos: addForm.historicalPhotos.filter(p => p.url || p.caption),
+        documents: addForm.documents.filter(d => d.title),
+        repairRecords: addForm.repairRecords.filter(r => r.description),
+        redCultureMarks: addForm.redCultureMarks.filter(r => r.title),
+      })
+
+      addToast(`模型「${addForm.name.trim()}」已创建`, 'success')
+      setShowAddModal(false)
+      // Reset form
+      setAddForm({
+        name: '', description: '', file: '', thumbnail: '', pointCount: '', size: '',
+        featured: false, tags: '',
+        protectionLevel: 'none', constructionYear: '', architecturalStyle: '',
+        conservationStatus: 'good', locationAddress: '', locationDistrict: '', locationLat: '0', locationLng: '0',
+        historicalPhotos: [], documents: [], repairRecords: [], redCultureMarks: [],
+      })
+      load()
+    } catch (e: any) {
+      addToast(`创建失败: ${e.message}`, 'error')
+    } finally {
+      setAddSaving(false)
+    }
+  }
+
   if (!authed) {
     return (
       <main className="min-h-screen bg-surface-0 flex items-center justify-center" style={{ paddingTop: '90px' }}>
@@ -206,13 +292,22 @@ export default function Admin() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-10">
           <h1 className="text-2xl font-display tracking-tight">模型管理</h1>
-          <button
-            onClick={load}
-            className="px-4 py-2 rounded-lg bg-white border border-border-1 text-text-3/70 text-xs hover:text-text-1 transition-colors cursor-pointer"
-            style={{ cursor: 'pointer' }}
-          >
-            刷新
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 rounded-lg text-[12px] font-medium text-white bg-accent-1/85 hover:bg-accent-1 border-none cursor-pointer transition-colors"
+              style={{ cursor: 'pointer' }}
+            >
+              + 添加模型
+            </button>
+            <button
+              onClick={load}
+              className="px-4 py-2 rounded-lg bg-white border border-border-1 text-text-3/70 text-xs hover:text-text-1 transition-colors cursor-pointer"
+              style={{ cursor: 'pointer' }}
+            >
+              刷新
+            </button>
+          </div>
         </div>
 
         {/* Section tabs */}
@@ -566,8 +661,346 @@ export default function Admin() {
             </div>
           </div>
         )}
+
+        {/* ── Add Model Modal ── */}
+        {showAddModal && (
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+            onClick={() => setShowAddModal(false)}
+          >
+            <div
+              className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl bg-white border border-border-1 shadow-xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-border-1">
+                <h2 className="text-[15px] font-semibold text-text-1 font-display tracking-wide">添加模型</h2>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-text-3/50 hover:text-text-1 hover:bg-surface-2 transition-colors bg-transparent border-none cursor-pointer"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Tab bar */}
+              <div className="shrink-0 flex gap-0 px-6 border-b border-border-1 bg-surface-0/50 overflow-x-auto">
+                {([
+                  { key: 'basic' as const, label: '基本信息' },
+                  { key: 'heritage' as const, label: '文保信息' },
+                  { key: 'photos' as const, label: '历史照片' },
+                  { key: 'docs' as const, label: '文史档案' },
+                  { key: 'repairs' as const, label: '修缮记录' },
+                  { key: 'red' as const, label: '红色印记' },
+                ]).map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setAddTab(t.key)}
+                    className={`px-4 py-2.5 text-[12px] font-medium tracking-wide transition-colors bg-transparent border-none cursor-pointer border-b-2 -mb-[1px] whitespace-nowrap ${
+                      addTab === t.key
+                        ? 'text-accent-1 border-accent-1'
+                        : 'text-text-3/60 border-transparent hover:text-text-2'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                {addTab === 'basic' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">名称 <span className="text-accent-3">*</span></label>
+                      <input type="text" value={addForm.name}
+                        onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="如：沙面汇丰银行旧址"
+                        className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">文件路径 <span className="text-accent-3">*</span></label>
+                      <input type="text" value={addForm.file}
+                        onChange={e => setAddForm(f => ({ ...f, file: e.target.value }))}
+                        placeholder="如：models/scene.splat 或 https://..."
+                        className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      <p className="text-[10px] text-text-3/40 mt-1">支持相对路径（public/models/）或完整 HTTPS URL</p>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">描述</label>
+                      <textarea value={addForm.description}
+                        onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
+                        rows={3} placeholder="建筑的历史背景、建筑特色等"
+                        className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40 resize-none" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">缩略图 URL</label>
+                        <input type="text" value={addForm.thumbnail}
+                          onChange={e => setAddForm(f => ({ ...f, thumbnail: e.target.value }))}
+                          placeholder="https://..."
+                          className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">标签（逗号分隔）</label>
+                        <input type="text" value={addForm.tags}
+                          onChange={e => setAddForm(f => ({ ...f, tags: e.target.value }))}
+                          placeholder="岭南建筑, 石雕"
+                          className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">点数（展示用）</label>
+                        <input type="text" value={addForm.pointCount}
+                          onChange={e => setAddForm(f => ({ ...f, pointCount: e.target.value }))}
+                          placeholder="如：969K"
+                          className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">文件大小</label>
+                        <input type="text" value={addForm.size}
+                          onChange={e => setAddForm(f => ({ ...f, size: e.target.value }))}
+                          placeholder="如：23.4 MB"
+                          className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={addForm.featured}
+                        onChange={e => setAddForm(f => ({ ...f, featured: e.target.checked }))}
+                        className="w-4 h-4 rounded border-border-1 text-accent-1 focus:ring-accent-1/30" />
+                      <span className="text-[12px] text-text-2">首页精选展示</span>
+                    </label>
+                  </div>
+                )}
+
+                {addTab === 'heritage' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">保护级别</label>
+                        <select value={addForm.protectionLevel ?? 'none'}
+                          onChange={e => setAddForm(f => ({ ...f, protectionLevel: e.target.value as HeritageMeta['protectionLevel'] }))}
+                          className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors cursor-pointer">
+                          {Object.entries(PROTECTION_LEVEL_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">保存状态</label>
+                        <select value={addForm.conservationStatus ?? 'good'}
+                          onChange={e => setAddForm(f => ({ ...f, conservationStatus: e.target.value as HeritageMeta['conservationStatus'] }))}
+                          className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors cursor-pointer">
+                          {Object.entries(CONSERVATION_STATUS_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">建造年代</label>
+                        <input type="text" value={addForm.constructionYear}
+                          onChange={e => setAddForm(f => ({ ...f, constructionYear: e.target.value }))}
+                          placeholder="如：清光绪年间（约1880年）"
+                          className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">建筑风格</label>
+                        <input type="text" value={addForm.architecturalStyle}
+                          onChange={e => setAddForm(f => ({ ...f, architecturalStyle: e.target.value }))}
+                          placeholder="如：岭南石雕、徽派建筑"
+                          className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      </div>
+                    </div>
+                    <fieldset className="rounded-xl border border-border-1 p-4 space-y-3">
+                      <legend className="text-[11px] font-medium text-text-3 px-1 tracking-wide">地理位置</legend>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">地址</label>
+                          <input type="text" value={addForm.locationAddress}
+                            onChange={e => setAddForm(f => ({ ...f, locationAddress: e.target.value }))}
+                            placeholder="详细地址"
+                            className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">所属区域</label>
+                          <input type="text" value={addForm.locationDistrict}
+                            onChange={e => setAddForm(f => ({ ...f, locationDistrict: e.target.value }))}
+                            placeholder="如：越秀区"
+                            className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">纬度</label>
+                          <input type="number" step="any" value={addForm.locationLat}
+                            onChange={e => setAddForm(f => ({ ...f, locationLat: e.target.value }))}
+                            placeholder="23.1196"
+                            className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-text-3 mb-1.5 tracking-wide">经度</label>
+                          <input type="number" step="any" value={addForm.locationLng}
+                            onChange={e => setAddForm(f => ({ ...f, locationLng: e.target.value }))}
+                            placeholder="113.2591"
+                            className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-text-1 text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                        </div>
+                      </div>
+                    </fieldset>
+                  </div>
+                )}
+
+                {addTab === 'photos' && <ListEditor
+                  items={addForm.historicalPhotos}
+                  emptyText="暂无历史照片"
+                  addLabel="+ 添加照片"
+                  onAdd={() => setAddForm(f => ({ ...f, historicalPhotos: [...f.historicalPhotos, { id: uid(), url: '', year: '', caption: '' }] }))}
+                  onRemove={i => setAddForm(f => ({ ...f, historicalPhotos: f.historicalPhotos.filter((_, j) => j !== i) }))}
+                  renderItem={(p, i) => (
+                    <div className="space-y-2">
+                      <input type="text" value={p.url} onChange={e => {
+                        const list = [...addForm.historicalPhotos]; list[i] = { ...list[i], url: e.target.value }; setAddForm(f => ({ ...f, historicalPhotos: list }))
+                      }} placeholder="图片 URL" className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={p.year} onChange={e => {
+                          const list = [...addForm.historicalPhotos]; list[i] = { ...list[i], year: e.target.value }; setAddForm(f => ({ ...f, historicalPhotos: list }))
+                        }} placeholder="年代" className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                        <input type="text" value={p.caption} onChange={e => {
+                          const list = [...addForm.historicalPhotos]; list[i] = { ...list[i], caption: e.target.value }; setAddForm(f => ({ ...f, historicalPhotos: list }))
+                        }} placeholder="图片说明" className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      </div>
+                    </div>
+                  )}
+                />}
+
+                {addTab === 'docs' && <ListEditor
+                  items={addForm.documents}
+                  emptyText="暂无文史档案"
+                  addLabel="+ 添加档案"
+                  onAdd={() => setAddForm(f => ({ ...f, documents: [...f.documents, { id: uid(), title: '', type: 'other' as ArchiveDocument['type'], description: '', url: '' }] }))}
+                  onRemove={i => setAddForm(f => ({ ...f, documents: f.documents.filter((_, j) => j !== i) }))}
+                  renderItem={(d, i) => (
+                    <div className="space-y-2">
+                      <input type="text" value={d.title} onChange={e => {
+                        const list = [...addForm.documents]; list[i] = { ...list[i], title: e.target.value }; setAddForm(f => ({ ...f, documents: list }))
+                      }} placeholder="档案标题" className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      <div className="flex gap-2">
+                        <select value={d.type} onChange={e => {
+                          const list = [...addForm.documents]; list[i] = { ...list[i], type: e.target.value as ArchiveDocument['type'] }; setAddForm(f => ({ ...f, documents: list }))
+                        }} className="w-32 px-2 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none cursor-pointer">
+                          <option value="history">历史资料</option>
+                          <option value="architecture">建筑测绘</option>
+                          <option value="culture">文化研究</option>
+                          <option value="party_history">党史资料</option>
+                          <option value="other">其他</option>
+                        </select>
+                        <input type="text" value={d.url ?? ''} onChange={e => {
+                          const list = [...addForm.documents]; list[i] = { ...list[i], url: e.target.value }; setAddForm(f => ({ ...f, documents: list }))
+                        }} placeholder="文件 URL（可选）" className="flex-1 px-2 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      </div>
+                      <textarea value={d.description} onChange={e => {
+                        const list = [...addForm.documents]; list[i] = { ...list[i], description: e.target.value }; setAddForm(f => ({ ...f, documents: list }))
+                      }} placeholder="档案描述" rows={2} className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40 resize-none" />
+                    </div>
+                  )}
+                />}
+
+                {addTab === 'repairs' && <ListEditor
+                  items={addForm.repairRecords}
+                  emptyText="暂无修缮记录"
+                  addLabel="+ 添加修缮记录"
+                  onAdd={() => setAddForm(f => ({ ...f, repairRecords: [...f.repairRecords, { id: uid(), date: '', description: '', photos: [] }] }))}
+                  onRemove={i => setAddForm(f => ({ ...f, repairRecords: f.repairRecords.filter((_, j) => j !== i) }))}
+                  renderItem={(r, i) => (
+                    <div className="space-y-2">
+                      <input type="text" value={r.date} onChange={e => {
+                        const list = [...addForm.repairRecords]; list[i] = { ...list[i], date: e.target.value }; setAddForm(f => ({ ...f, repairRecords: list }))
+                      }} placeholder="日期（如：2023-08）" className="w-44 px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      <textarea value={r.description} onChange={e => {
+                        const list = [...addForm.repairRecords]; list[i] = { ...list[i], description: e.target.value }; setAddForm(f => ({ ...f, repairRecords: list }))
+                      }} placeholder="修缮描述" rows={2} className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40 resize-none" />
+                    </div>
+                  )}
+                />}
+
+                {addTab === 'red' && <ListEditor
+                  items={addForm.redCultureMarks}
+                  emptyText="暂无红色文化印记"
+                  addLabel="+ 添加红色印记"
+                  onAdd={() => setAddForm(f => ({ ...f, redCultureMarks: [...f.redCultureMarks, { id: uid(), title: '', description: '', period: '' }] }))}
+                  onRemove={i => setAddForm(f => ({ ...f, redCultureMarks: f.redCultureMarks.filter((_, j) => j !== i) }))}
+                  renderItem={(r, i) => (
+                    <div className="space-y-2">
+                      <input type="text" value={r.title} onChange={e => {
+                        const list = [...addForm.redCultureMarks]; list[i] = { ...list[i], title: e.target.value }; setAddForm(f => ({ ...f, redCultureMarks: list }))
+                      }} placeholder="标题（如：大革命时期工农集会点）" className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      <input type="text" value={r.period} onChange={e => {
+                        const list = [...addForm.redCultureMarks]; list[i] = { ...list[i], period: e.target.value }; setAddForm(f => ({ ...f, redCultureMarks: list }))
+                      }} placeholder="历史时期（如：抗日战争时期 1942-1944）" className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40" />
+                      <textarea value={r.description} onChange={e => {
+                        const list = [...addForm.redCultureMarks]; list[i] = { ...list[i], description: e.target.value }; setAddForm(f => ({ ...f, redCultureMarks: list }))
+                      }} placeholder="详细描述" rows={2} className="w-full px-3 py-2 rounded-lg border border-border-1 bg-white text-[13px] focus:outline-none focus:border-accent-1/40 transition-colors placeholder:text-text-3/40 resize-none" />
+                    </div>
+                  )}
+                />}
+              </div>
+
+              {/* Footer */}
+              <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-border-1 bg-surface-0/50">
+                <p className="text-[10px] text-text-3/40">管理员创建的模型将直接通过审核并公开展示</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowAddModal(false)}
+                    className="px-4 py-2 rounded-xl text-[12px] text-text-2/70 hover:text-text-1 bg-transparent border border-border-1 hover:bg-surface-1 transition-colors cursor-pointer"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleAddSave}
+                    disabled={addSaving || !addForm.name.trim() || !addForm.file.trim()}
+                    className="px-5 py-2 rounded-xl text-[12px] font-medium text-white bg-accent-1 hover:opacity-90 transition-opacity border-none cursor-pointer disabled:opacity-50"
+                  >
+                    {addSaving ? '创建中…' : '创建模型'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
+  )
+}
+
+/** Generic list editor used in Add Model modal */
+function ListEditor<T>({ items, emptyText, addLabel, onAdd, onRemove, renderItem }: {
+  items: T[]
+  emptyText: string
+  addLabel: string
+  onAdd: () => void
+  onRemove: (i: number) => void
+  renderItem: (item: T, i: number) => React.ReactNode
+}) {
+  return (
+    <div className="space-y-3">
+      {items.length === 0 && (
+        <p className="text-[12px] text-text-3/50 text-center py-8">{emptyText}</p>
+      )}
+      {items.map((item, i) => (
+        <div key={i} className="flex gap-3 p-3 rounded-xl bg-surface-0 border border-border-1 items-start">
+          <div className="flex-1">{renderItem(item, i)}</div>
+          <button onClick={() => onRemove(i)}
+            className="px-2.5 py-1 rounded-lg text-[11px] text-accent-3/60 hover:text-accent-3 hover:bg-accent-3/5 transition-colors bg-transparent border-none cursor-pointer"
+            style={{ marginTop: 2 }}>
+            删除
+          </button>
+        </div>
+      ))}
+      <button onClick={onAdd}
+        className="px-3 py-1.5 rounded-lg text-[11px] text-accent-1/70 hover:bg-accent-1/5 transition-colors bg-transparent border border-accent-1/15 cursor-pointer">
+        {addLabel}
+      </button>
+    </div>
   )
 }
 
