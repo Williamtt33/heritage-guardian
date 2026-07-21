@@ -58,42 +58,46 @@ export function useSceneInit({ canvasRef, containerRef, modelSource }: UseSceneI
       localSplat = SPLAT
       splatModuleRef.current = SPLAT
 
-      localScene = new SPLAT.Scene()
-      localCamera = new SPLAT.Camera()
-      localRenderer = new SPLAT.WebGLRenderer(canvas)
-      localControls = new SPLAT.OrbitControls(
-        localCamera as any,
-        canvas,
-        window.innerWidth / 2,
-        window.innerHeight / 2,
-        Math.PI / 180,
-        false, // disable keyboard — we handle WASD ourselves
-      )
-
-      sceneRef.current = localScene
-      cameraRef.current = localCamera
-      rendererRef.current = localRenderer
-      controlsRef.current = localControls
-
-      // Intersection tester for hotspot placement
       try {
-        intersectionTesterRef.current = new SPLAT.IntersectionTester(
-          localScene as any,
+        localScene = new SPLAT.Scene()
+        localCamera = new SPLAT.Camera()
+        localRenderer = new SPLAT.WebGLRenderer(canvas)
+        localControls = new SPLAT.OrbitControls(
           localCamera as any,
-          localRenderer as any,
+          canvas,
+          window.innerWidth / 2,
+          window.innerHeight / 2,
+          Math.PI / 180,
+          false, // disable keyboard — we handle WASD ourselves
         )
-      } catch { /* IntersectionTester might not be available */ }
 
-      // Load model
-      if (!modelSource) { setIsLoading(false); return }
+        // Set a safe default camera position before model loads
+        localCamera.position = new SPLAT.Vector3(0, 1.5, 8)
+        localControls.setCameraTarget(new SPLAT.Vector3(0, 0, 0))
 
-      try {
+        sceneRef.current = localScene
+        cameraRef.current = localCamera
+        rendererRef.current = localRenderer
+        controlsRef.current = localControls
+
+        // Intersection tester for hotspot placement
+        try {
+          intersectionTesterRef.current = new SPLAT.IntersectionTester(
+            localScene as any,
+            localCamera as any,
+            localRenderer as any,
+          )
+        } catch { /* IntersectionTester might not be available */ }
+
+        // Load model
+        if (!modelSource) { setIsLoading(false); return }
+
         setIsLoading(true)
         setError(null)
         setProgress(0)
 
         if (modelSource.type === 'buffer') {
-          setProgress(10) // parsing
+          setProgress(10)
           const isPly = modelSource.format === 'ply'
           const loader = isPly ? SPLAT.PLYLoader : SPLAT.Loader
           const splat = await (loader as any).LoadFromArrayBuffer(
@@ -104,64 +108,6 @@ export function useSceneInit({ canvasRef, containerRef, modelSource }: UseSceneI
             setSplatCount(splat.data?.vertexCount ?? 0)
           }
         } else {
-          // Pre-flight check: verify the file is reachable before handing to gsplat
-          try {
-            const headRes = await fetch(modelSource.url, { method: 'HEAD' })
-            if (!headRes.ok) {
-              throw new Error(`模型文件不存在 (HTTP ${headRes.status}): ${modelSource.url}`)
-            }
-          } catch (preflightErr: any) {
-            if (preflightErr.message?.includes('HTTP')) throw preflightErr
-            // Network error — rethrow with URL context
-            throw new Error(`无法连接服务器加载模型: ${modelSource.url}`)
-          }
-
-          // Pre-compute scene bounds from splat data for camera framing
-          let sceneBounds: { cx: number; cy: number; cz: number; halfSize: number } | null = null
-          try {
-            const sampleRes = await fetch(modelSource.url + '?sample')
-            if (sampleRes.ok && sampleRes.body) {
-              const reader = sampleRes.body.getReader()
-              const chunks: Uint8Array[] = []
-              let totalBytes = 0
-              const MAX_SAMPLE = 65536 // Read first 64KB (~2048 gaussians)
-              while (totalBytes < MAX_SAMPLE) {
-                const { done, value } = await reader.read()
-                if (done || !value) break
-                chunks.push(value)
-                totalBytes += value.length
-              }
-              reader.cancel() // Abort the rest of the download
-
-              // Merge chunks and parse positions
-              const buf = new Uint8Array(totalBytes)
-              let offset = 0
-              for (const c of chunks) { buf.set(c, offset); offset += c.length }
-
-              const count = Math.floor(totalBytes / 32)
-              let minX = Infinity, minY = Infinity, minZ = Infinity
-              let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
-              const view = new DataView(buf.buffer)
-              const stride = Math.max(1, Math.floor(count / 500)) // Sample ~500 points
-              for (let i = 0; i < count; i += stride) {
-                const off = i * 32
-                const x = view.getFloat32(off, true)
-                const y = view.getFloat32(off + 4, true)
-                const z = view.getFloat32(off + 8, true)
-                if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-                  if (x < minX) minX = x; if (x > maxX) maxX = x
-                  if (y < minY) minY = y; if (y > maxY) maxY = y
-                  if (z < minZ) minZ = z; if (z > maxZ) maxZ = z
-                }
-              }
-              if (isFinite(minX)) {
-                const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2
-                const halfSize = Math.max(maxX - minX, maxY - minY, maxZ - minZ) / 2
-                sceneBounds = { cx, cy, cz, halfSize }
-              }
-            }
-          } catch { /* pre-compute failed, use default camera */ }
-
           const splat = await SPLAT.Loader.LoadAsync(
             modelSource.url, localScene as any,
             (p: number) => setProgress(Math.round(p * 100)),
@@ -169,22 +115,37 @@ export function useSceneInit({ canvasRef, containerRef, modelSource }: UseSceneI
           if (!disposed && splat) {
             setSplatCount(splat.data?.vertexCount ?? 0)
 
-            // Auto-frame camera to show the model
-            if (sceneBounds) {
-              const { cx, cy, cz, halfSize } = sceneBounds
-              const dist = halfSize * 2.5 || 5
-              const SPLAT_V3 = SPLAT.Vector3
-              localCamera.position = new SPLAT_V3(cx + dist * 0.5, cy + dist * 0.3, cz + dist)
-              localControls.setCameraTarget(new SPLAT_V3(cx, cy, cz))
-              localControls.dampening = 1; localControls.update(); localControls.dampening = 0.2
+            // Auto-frame camera using gsplat's native bounds (no double-download)
+            try {
+              const bounds = splat.bounds
+              if (bounds) {
+                const center = bounds.center()
+                const size = bounds.size()
+                const halfSize = Math.max(size.x, size.y, size.z) / 2
+                const dist = Math.max(halfSize * 2.5, 3)
+                localCamera.position = new SPLAT.Vector3(
+                  center.x + dist * 0.5,
+                  center.y + dist * 0.3,
+                  center.z + dist,
+                )
+                localControls.setCameraTarget(new SPLAT.Vector3(center.x, center.y, center.z))
+                localControls.dampening = 1; localControls.update(); localControls.dampening = 0.2
+              }
+            } catch {
+              // gsplat bounds not available — camera stays at default position
+              console.warn('[Viewer] Could not compute model bounds, using default camera')
             }
           }
         }
       } catch (err: any) {
-        if (!disposed) setError(err.message || '模型加载失败')
+        console.error('[Viewer] Scene init failed:', err.message || err)
+        if (!disposed) setError(err.message || '场景初始化失败')
       } finally {
         if (!disposed) setIsLoading(false)
       }
+    }).catch((err: any) => {
+      console.error('[Viewer] gsplat import failed:', err.message || err)
+      if (!disposed) { setError('渲染引擎加载失败'); setIsLoading(false) }
     })
 
     // Resize handler

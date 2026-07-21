@@ -74,7 +74,7 @@ export default function ViewerPage({ modelId, edit }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50 bg-black">
       <Viewer3D
         modelSource={source}
         modelName={model.name}
