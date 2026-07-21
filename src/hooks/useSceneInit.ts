@@ -112,10 +112,12 @@ export function useSceneInit({ canvasRef, containerRef, modelSource }: UseSceneI
             modelSource.url, localScene as any,
             (p: number) => setProgress(Math.round(p * 100)),
           )
+          console.log('[Viewer] Model loaded:', modelSource.url, 'points:', splat?.data?.vertexCount)
           if (!disposed && splat) {
             setSplatCount(splat.data?.vertexCount ?? 0)
 
             // Auto-frame camera using gsplat's native bounds (no double-download)
+            splat.recalculateBounds()
             try {
               const bounds = splat.bounds
               if (bounds) {
@@ -123,6 +125,7 @@ export function useSceneInit({ canvasRef, containerRef, modelSource }: UseSceneI
                 const size = bounds.size()
                 const halfSize = Math.max(size.x, size.y, size.z) / 2
                 const dist = Math.max(halfSize * 2.5, 3)
+                console.log('[Viewer] Bounds center:', center.x.toFixed(2), center.y.toFixed(2), center.z.toFixed(2), 'halfSize:', halfSize.toFixed(2), 'dist:', dist.toFixed(2))
                 localCamera.position = new SPLAT.Vector3(
                   center.x + dist * 0.5,
                   center.y + dist * 0.3,
@@ -135,6 +138,8 @@ export function useSceneInit({ canvasRef, containerRef, modelSource }: UseSceneI
               // gsplat bounds not available — camera stays at default position
               console.warn('[Viewer] Could not compute model bounds, using default camera')
             }
+          } else {
+            console.warn('[Viewer] Splat object is null after loading:', modelSource.url)
           }
         }
       } catch (err: any) {
