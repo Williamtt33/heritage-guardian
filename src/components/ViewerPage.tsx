@@ -31,12 +31,14 @@ export default function ViewerPage({ modelId, edit }: Props) {
         const src = await resolveModelSource(m)
         if (!cancelled) setSource(src)
       } catch (e: any) {
-        if (!cancelled) setError(e.message || '加载失败')
+        console.error('[ViewerPage-A] resolveModelSource error:', e.message || e)
+        if (!cancelled) setError(e.message || '加载失败（模型源解析）')
       } finally {
         if (!cancelled) setLoading(false)
       }
     }).catch(e => {
-      if (!cancelled) { setError(e.message); setLoading(false) }
+      console.error('[ViewerPage-B] getModelById error:', e.message || e)
+      if (!cancelled) { setError(e.message || '加载失败（模型查询）'); setLoading(false) }
     })
 
     return () => { cancelled = true }

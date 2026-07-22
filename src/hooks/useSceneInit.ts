@@ -162,13 +162,13 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
           }
         }
       } catch (err: any) {
-        console.error('[Viewer] Scene init failed:', err.message || err)
+        console.error('[Viewer-C] Scene/model load failed:', err.message || err, err)
         if (!disposed) setError(err.message || '场景初始化失败')
       } finally {
         if (!disposed) setIsLoading(false)
       }
     }).catch((err: any) => {
-      console.error('[Viewer] gsplat import failed:', err.message || err)
+      console.error('[Viewer-D] gsplat import failed:', err.message || err)
       if (!disposed) { setError('渲染引擎加载失败'); setIsLoading(false) }
     })
 
