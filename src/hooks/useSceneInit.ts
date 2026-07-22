@@ -55,8 +55,11 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
     const resize = () => {
       const container = containerRef.current
       if (!container || !localRenderer || !localCamera) return
-      const w = container.clientWidth
-      const h = container.clientHeight
+      let w = container.clientWidth
+      let h = container.clientHeight
+      // Fallback to window dimensions if container hasn't been laid out yet
+      if (w === 0) w = window.innerWidth
+      if (h === 0) h = window.innerHeight
       if (w === 0 || h === 0) return
       const dpr = Math.min(window.devicePixelRatio, 2)
       canvas.width = w * dpr
@@ -178,16 +181,8 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
       disposed = true
       window.removeEventListener('resize', resize)
       ro.disconnect()
-      // Force WebGL context loss to ensure clean re-init (critical for React StrictMode double-mount)
       if (localRenderer) {
         try { localRenderer.dispose?.() } catch { /* ignore */ }
-        try {
-          const gl = (canvas as any).__gl || canvas.getContext('webgl2')
-          if (gl) {
-            const loseCtx = gl.getExtension('WEBGL_lose_context')
-            loseCtx?.loseContext()
-          }
-        } catch { /* ignore */ }
       }
     }
   }, [modelKey ?? (modelSource?.type === 'url' ? (modelSource as any).url : (modelSource as any)?.buffer?.byteLength ?? '')])
