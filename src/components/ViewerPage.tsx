@@ -21,6 +21,7 @@ export default function ViewerPage({ modelId, edit }: Props) {
     setError(null)
 
     getModelById(modelId).then(async (m) => {
+      console.log('[ViewerPage] getModelById result for', modelId, ':', m ? `found (${m.name})` : 'NOT FOUND')
       if (cancelled || !m) {
         if (!cancelled) setError('模型未找到')
         setLoading(false)
@@ -29,13 +30,16 @@ export default function ViewerPage({ modelId, edit }: Props) {
       setModel(m)
       try {
         const src = await resolveModelSource(m)
+        console.log('[ViewerPage] resolveModelSource result:', src?.type, src?.type === 'url' ? (src as any).url : 'buffer')
         if (!cancelled) setSource(src)
       } catch (e: any) {
+        console.error('[ViewerPage] resolveModelSource failed:', e.message)
         if (!cancelled) setError(e.message || '加载失败')
       } finally {
         if (!cancelled) setLoading(false)
       }
     }).catch(e => {
+      console.error('[ViewerPage] getModelById threw:', e.message)
       if (!cancelled) { setError(e.message); setLoading(false) }
     })
 

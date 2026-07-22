@@ -40,7 +40,9 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
   // Init WebGL scene
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) { console.warn('[Viewer] useSceneInit: canvas is null, skipping init'); return }
+
+    console.log('[Viewer] useSceneInit: starting scene init, modelKey =', modelKey, 'modelSource =', modelSource?.type)
 
     let disposed = false
     let localRenderer: WebGLRenderer | null = null
@@ -98,6 +100,7 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
         cameraRef.current = localCamera
         rendererRef.current = localRenderer
         controlsRef.current = localControls
+        console.log('[Viewer] WebGL scene created, renderer =', !!localRenderer, 'canvas size =', canvas.width, 'x', canvas.height)
 
         // Intersection tester for hotspot placement
         try {
@@ -109,7 +112,9 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
         } catch { /* IntersectionTester might not be available */ }
 
         // Load model
-        if (!modelSource) { setIsLoading(false); return }
+        if (!modelSource) { console.log('[Viewer] No modelSource provided, skipping model load'); setIsLoading(false); return }
+
+        console.log('[Viewer] Starting model load:', modelSource.type, modelSource.type === 'url' ? modelSource.url : `buffer (${modelSource.buffer.byteLength} bytes)`)
 
         setIsLoading(true)
         setError(null)
@@ -173,7 +178,17 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
       disposed = true
       window.removeEventListener('resize', resize)
       ro.disconnect()
-      localRenderer?.dispose?.()
+      // Force WebGL context loss to ensure clean re-init (critical for React StrictMode double-mount)
+      if (localRenderer) {
+        try { localRenderer.dispose?.() } catch { /* ignore */ }
+        try {
+          const gl = (canvas as any).__gl || canvas.getContext('webgl2')
+          if (gl) {
+            const loseCtx = gl.getExtension('WEBGL_lose_context')
+            loseCtx?.loseContext()
+          }
+        } catch { /* ignore */ }
+      }
     }
   }, [modelKey ?? (modelSource?.type === 'url' ? (modelSource as any).url : (modelSource as any)?.buffer?.byteLength ?? '')])
 
