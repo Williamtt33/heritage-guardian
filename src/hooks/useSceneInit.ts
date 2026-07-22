@@ -40,9 +40,7 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
   // Init WebGL scene
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) { console.warn('[Viewer] useSceneInit: canvas is null, skipping init'); return }
-
-    console.log('[Viewer] useSceneInit: starting scene init, modelKey =', modelKey, 'modelSource =', modelSource?.type)
+    if (!canvas) return
 
     let disposed = false
     let localRenderer: WebGLRenderer | null = null
@@ -103,7 +101,6 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
         cameraRef.current = localCamera
         rendererRef.current = localRenderer
         controlsRef.current = localControls
-        console.log('[Viewer] WebGL scene created, renderer =', !!localRenderer, 'canvas size =', canvas.width, 'x', canvas.height)
 
         // Intersection tester for hotspot placement
         try {
@@ -115,9 +112,7 @@ export function useSceneInit({ canvasRef, containerRef, modelSource, modelKey }:
         } catch { /* IntersectionTester might not be available */ }
 
         // Load model
-        if (!modelSource) { console.log('[Viewer] No modelSource provided, skipping model load'); setIsLoading(false); return }
-
-        console.log('[Viewer] Starting model load:', modelSource.type, modelSource.type === 'url' ? modelSource.url : `buffer (${modelSource.buffer.byteLength} bytes)`)
+        if (!modelSource) { setIsLoading(false); return }
 
         setIsLoading(true)
         setError(null)
