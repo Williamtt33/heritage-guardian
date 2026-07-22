@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模型加载测试</title>
+<style>
+  body { margin: 0; background: #000; color: #fff; font-family: sans-serif; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #status { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; }
+  #error { color: #f44; font-size: 14px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div id="status"><div id="msg">正在初始化…</div><div id="error"></div></div>
+<canvas id="c"></canvas>
+
+<script type="importmap">
+{ "imports": { "gsplat": "/node_modules/gsplat/dist/index.es.js" } }
+</script>
+
+<script type="module">
+import * as SPLAT from 'gsplat'
+
+const canvas = document.getElementById('c')
+const msg = document.getElementById('msg')
+const err = document.getElementById('error')
+
+function log(text) { msg.textContent = text; console.log('[test]', text) }
+function fail(text) { err.textContent = text; console.error('[test]', text) }
+
+async function main() {
+  try {
+    log('创建场景…')
+    const scene = new SPLAT.Scene()
+    const camera = new SPLAT.Camera()
+    const renderer = new SPLAT.WebGLRenderer(canvas)
+    const controls = new SPLAT.OrbitControls(camera, canvas, innerWidth/2, innerHeight/2, Math.PI/180, false)
+
+    canvas.width = innerWidth * Math.min(devicePixelRatio, 2)
+    canvas.height = innerHeight * Math.min(devicePixelRatio, 2)
+    renderer.setSize?.(canvas.width, canvas.height)
+
+    camera.position = new SPLAT.Vector3(0, 1.5, 8)
+    controls.setCameraTarget(new SPLAT.Vector3(0, 0, 0))
+
+    log('加载模型: /models/chinese-guardian-lion.splat …')
+    const splat = await SPLAT.Loader.LoadAsync('/models/chinese-guardian-lion.splat', scene, p => {
+      log(`加载中 ${Math.round(p * 100)}%`)
+    })
+
+    if (!splat) { fail('splat 对象为空'); return }
+
+    log(`模型加载完成！点数: ${splat.data?.vertexCount?.toLocaleString()}`)
+
+    splat.recalculateBounds()
+    const bounds = splat.bounds
+    if (bounds) {
+      const c = bounds.center(); const s = bounds.size()
+      const half = Math.max(s.x, s.y, s.z) / 2
+      const dist = Math.max(half * 2.5, 3)
+      camera.position = new SPLAT.Vector3(c.x + dist*0.5, c.y + dist*0.3, c.z + dist)
+      controls.setCameraTarget(new SPLAT.Vector3(c.x, c.y, c.z))
+    }
+
+    log('渲染中…')
+
+    function render() {
+      controls.update()
+      renderer.render(scene, camera)
+      requestAnimationFrame(render)
+    }
+    requestAnimationFrame(render)
+
+    document.getElementById('status').style.display = 'none'
+
+  } catch (e) {
+    fail(`错误: ${e.message || e}`)
+  }
+}
+
+main()
+</script>
+</body>
+</html>

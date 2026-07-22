@@ -413,10 +413,10 @@ export default function Viewer3D({ modelSource, modelName, modelId, readOnly, do
       {/* Error */}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-20">
-          <div className="text-center p-8 max-w-sm">
+          <div className="text-center p-8 max-w-lg">
             <div className="text-5xl mb-5 opacity-70">⚠️</div>
             <h2 className="text-white/80 text-lg font-semibold mb-2 font-display">加载失败</h2>
-            <p className="text-white/30 text-[13px] leading-relaxed mb-6">{error}</p>
+            <div className="text-white/60 text-[13px] leading-relaxed mb-6 bg-white/[0.04] rounded-xl p-4 text-left font-mono whitespace-pre-wrap break-all max-h-[40vh] overflow-auto">{error}</div>
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => go({ route: 'archive' })}
