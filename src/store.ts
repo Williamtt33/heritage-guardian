@@ -1,12 +1,8 @@
 import { supabase, isSupabaseConfigured } from './supabase'
 import type { ModelMeta, Hotspot, CameraPath, Vector3Like, HistoricalPhoto, ArchiveDocument, RepairRecord, CommunityReport, RedCultureMark, TourRoute } from './types'
-import { STORAGE_KEY_HOTSPOTS, STORAGE_KEY_CAMERA_PATHS, STORAGE_KEY_CUSTOM_MODELS, STORAGE_KEY_INITIAL_CAMERA, STORAGE_KEY_THUMBNAILS, STORAGE_KEY_HERITAGE_META, STORAGE_KEY_COMMUNITY_REPORTS, STORAGE_KEY_PENDING_MODELS, STORAGE_KEY_REJECTED_MODELS, applyHeritageDefaults, generateTrackingCode } from './types'
+import { STORAGE_KEY_HOTSPOTS, STORAGE_KEY_CAMERA_PATHS, STORAGE_KEY_CUSTOM_MODELS, STORAGE_KEY_INITIAL_CAMERA, STORAGE_KEY_THUMBNAILS, STORAGE_KEY_HERITAGE_META, STORAGE_KEY_COMMUNITY_REPORTS, STORAGE_KEY_PENDING_MODELS, STORAGE_KEY_REJECTED_MODELS, applyHeritageDefaults, generateTrackingCode, uid } from './types'
 
 // ── Helpers ──
-
-function uid(): string {
-  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
 
 function warn(msg: string, err?: unknown) {
   console.warn(`[store] ${msg}`, err ?? '')
@@ -139,18 +135,13 @@ export async function getAllModels(): Promise<ModelMeta[]> {
   for (const m of custom) {
     if (seen.has(m.id)) continue
     if (!m.file || m.file.trim() === '') { needsCleanup = true; continue }
-    if (/\bfull\b/i.test(m.id) || /\bfull\b/i.test(m.file)) { needsCleanup = true; continue }
     seen.add(m.id)
     all.push(m)
   }
-  // Auto-cleanup stale models from localStorage
+  // Auto-cleanup stale models from localStorage (only remove entries with empty file paths)
   if (needsCleanup) {
     try {
-      const valid = custom.filter(m => {
-        if (!m.file || m.file.trim() === '') return false
-        if (/\bfull\b/i.test(m.id) || /\bfull\b/i.test(m.file)) return false
-        return true
-      })
+      const valid = custom.filter(m => m.file && m.file.trim() !== '')
       localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(valid))
     } catch { /* ignore */ }
   }
@@ -204,11 +195,52 @@ export async function saveModel(model: Omit<ModelMeta, 'id'> & { id?: string }):
 }
 
 export async function deleteModel(id: string): Promise<void> {
+  // 1. Supabase: delete from DB if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await withTimeout(
+        supabase.from('models').delete().eq('id', id),
+        SUPABASE_WRITE_TIMEOUT,
+      )
+      if (result && (result as any).error) {
+        warn('Supabase 删除失败，继续清理本地', (result as any).error)
+      }
+    } catch (e) { warn('Supabase 删除异常', e) }
+  }
+
+  // 2. Clean up localStorage: all model-related keys
+  const storageKeys = [
+    STORAGE_KEY_CUSTOM_MODELS,
+    STORAGE_KEY_PENDING_MODELS,
+    STORAGE_KEY_REJECTED_MODELS,
+  ]
+  for (const key of storageKeys) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw) {
+        const list: ModelMeta[] = JSON.parse(raw)
+        localStorage.setItem(key, JSON.stringify(list.filter(x => x.id !== id)))
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 3. Clean up associated data: hotspots, camera paths, heritage meta, thumbnails, initial camera
+  try { localStorage.removeItem(STORAGE_KEY_HOTSPOTS + id) } catch { /* ignore */ }
+  try { localStorage.removeItem(STORAGE_KEY_CAMERA_PATHS + id) } catch { /* ignore */ }
+  try { localStorage.removeItem(STORAGE_KEY_HERITAGE_META + id) } catch { /* ignore */ }
+  try { localStorage.removeItem(STORAGE_KEY_INITIAL_CAMERA + id) } catch { /* ignore */ }
+
+  // Clean up thumbnail override for this model
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_MODELS)
-    const models: ModelMeta[] = raw ? JSON.parse(raw) : []
-    localStorage.setItem(STORAGE_KEY_CUSTOM_MODELS, JSON.stringify(models.filter(x => x.id !== id)))
-  } catch { /* localStorage not available */ }
+    const overrides = getThumbnailOverrides()
+    if (overrides[id]) {
+      delete overrides[id]
+      localStorage.setItem(STORAGE_KEY_THUMBNAILS, JSON.stringify(overrides))
+    }
+  } catch { /* ignore */ }
+
+  // Invalidate built-in cache (so re-fetch picks up the change)
+  builtinCache = null
 }
 
 // ── Pending model review ──
@@ -491,7 +523,10 @@ export async function saveHotspots(modelId: string, hotspots: Hotspot[]): Promis
 
   if (isSupabaseConfigured()) {
     try {
-      await supabase.from('hotspots').delete().eq('model_id', modelId)
+      await withTimeout(
+        supabase.from('hotspots').delete().eq('model_id', modelId),
+        SUPABASE_WRITE_TIMEOUT,
+      )
       if (hotspots.length > 0) {
         const rows = hotspots.map(hs => ({
           id: hs.id, model_id: modelId,
@@ -500,8 +535,11 @@ export async function saveHotspots(modelId: string, hotspots: Hotspot[]): Promis
           camera_pos_x: hs.cameraPosition.x, camera_pos_y: hs.cameraPosition.y, camera_pos_z: hs.cameraPosition.z,
           camera_tgt_x: hs.cameraTarget.x, camera_tgt_y: hs.cameraTarget.y, camera_tgt_z: hs.cameraTarget.z,
         }))
-        const { error } = await supabase.from('hotspots').insert(rows)
-        if (error) throw error
+        const result = await withTimeout(
+          supabase.from('hotspots').insert(rows),
+          SUPABASE_WRITE_TIMEOUT,
+        )
+        if (result && (result as any).error) throw (result as any).error
       }
     } catch (e) {
       warn('云端标注保存失败', e)
@@ -556,15 +594,24 @@ export async function saveCameraPaths(modelId: string, paths: CameraPath[]): Pro
 
   if (isSupabaseConfigured()) {
     try {
-      await supabase.from('camera_paths').delete().eq('model_id', modelId)
+      await withTimeout(
+        supabase.from('camera_paths').delete().eq('model_id', modelId),
+        SUPABASE_WRITE_TIMEOUT,
+      )
       for (const path of paths) {
-        await supabase.from('camera_paths').insert({ id: path.id, model_id: modelId, name: path.name })
+        await withTimeout(
+          supabase.from('camera_paths').insert({ id: path.id, model_id: modelId, name: path.name }),
+          SUPABASE_WRITE_TIMEOUT,
+        )
         if (path.keyframes.length > 0) {
-          await supabase.from('keyframes').insert(path.keyframes.map((kf, i) => ({
-            id: kf.id, path_id: path.id, sort_order: i,
-            pos_x: kf.position.x, pos_y: kf.position.y, pos_z: kf.position.z,
-            tgt_x: kf.target.x, tgt_y: kf.target.y, tgt_z: kf.target.z,
-          })))
+          await withTimeout(
+            supabase.from('keyframes').insert(path.keyframes.map((kf, i) => ({
+              id: kf.id, path_id: path.id, sort_order: i,
+              pos_x: kf.position.x, pos_y: kf.position.y, pos_z: kf.position.z,
+              tgt_x: kf.target.x, tgt_y: kf.target.y, tgt_z: kf.target.z,
+            }))),
+            SUPABASE_WRITE_TIMEOUT,
+          )
         }
       }
     } catch (e) { warn('云端相机路径保存失败', e) }
@@ -717,8 +764,11 @@ export async function updateReportStatus(
     try {
       const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() }
       if (adminNote !== undefined) update.admin_note = adminNote
-      const { error } = await supabase.from('community_reports').update(update).eq('id', reportId)
-      if (error) throw error
+      const result = await withTimeout(
+        supabase.from('community_reports').update(update).eq('id', reportId),
+        SUPABASE_WRITE_TIMEOUT,
+      )
+      if (result && (result as any).error) throw (result as any).error
       return
     } catch (e) { warn('云端状态更新失败，更新本地', e) }
   }
@@ -735,8 +785,11 @@ export async function updateReportStatus(
 export async function deleteReport(reportId: string): Promise<void> {
   if (isSupabaseConfigured()) {
     try {
-      const { error } = await supabase.from('community_reports').delete().eq('id', reportId)
-      if (error) throw error
+      const result = await withTimeout(
+        supabase.from('community_reports').delete().eq('id', reportId),
+        SUPABASE_WRITE_TIMEOUT,
+      )
+      if (result && (result as any).error) throw (result as any).error
       return
     } catch (e) { warn('云端删除失败，删除本地', e) }
   }

@@ -252,7 +252,7 @@ export default function Community() {
         <section className="pb-24 sm:pb-32">
           <div className="max-w-3xl mx-auto px-6 sm:px-8">
 
-            {tab === 'reports' ? (
+            {tab === 'reports' && (
               /* Reports list */
               loading ? (
                 <div className="flex items-center justify-center py-20">
@@ -300,7 +300,8 @@ export default function Community() {
                   })}
                 </div>
               )
-            ) : (
+            )}
+            {tab === 'submit' && (
               /* Submit form */
               <div className="ink-card rounded-2xl p-6 sm:p-8 animate-fade-up">
                 {submitted && (

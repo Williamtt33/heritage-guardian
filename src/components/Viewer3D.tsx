@@ -33,9 +33,9 @@ export default function Viewer3D({ modelSource, modelName, modelId, readOnly, do
 
   // Scene init
   const {
-    rendererRef, sceneRef, cameraRef, controlsRef, splatModuleRef, intersectionTesterRef,
+    rendererRef, sceneRef, cameraRef, controlsRef, splatModuleRef, splatRef, intersectionTesterRef,
     isLoading, progress, error, splatCount,
-  } = useSceneInit({ canvasRef, containerRef, modelSource })
+  } = useSceneInit({ canvasRef, containerRef, modelSource, modelKey: modelId })
 
   // Hotspots
   const {
@@ -271,8 +271,24 @@ export default function Viewer3D({ modelSource, modelName, modelId, readOnly, do
       if (e.key === 'r' || e.key === 'R') {
         const cam = cameraRef.current; const ctrl = controlsRef.current; const SPLAT = splatModuleRef.current
         if (cam && ctrl && SPLAT) {
-          cam.position = new SPLAT.Vector3(0, 0, 5)
-          ctrl.setCameraTarget(new SPLAT.Vector3(0, 0, 0)); ctrl.update()
+          // Use model bounds for smart reset, fallback to safe default
+          let cx = 0, cy = 0, cz = 0, dist = 5
+          try {
+            const splat = splatRef.current
+            if (splat?.recalculateBounds) {
+              splat.recalculateBounds()
+              const bounds = splat.bounds
+              if (bounds) {
+                const center = bounds.center()
+                const size = bounds.size()
+                const half = Math.max(size.x, size.y, size.z) / 2
+                cx = center.x; cy = center.y; cz = center.z
+                dist = Math.max(half * 2.5, 3)
+              }
+            }
+          } catch { /* use defaults */ }
+          cam.position = new SPLAT.Vector3(cx + dist * 0.5, cy + dist * 0.3, cz + dist)
+          ctrl.setCameraTarget(new SPLAT.Vector3(cx, cy, cz)); ctrl.update()
         }
       }
       // Arrow navigation between hotspots

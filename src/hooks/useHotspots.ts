@@ -1,10 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Hotspot, Vector3Like } from '../types'
+import { uid } from '../types'
 import { getHotspots, saveHotspots } from '../store'
-
-function uid(): string {
-  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
 
 interface UseHotspotsResult {
   hotspots: Hotspot[]

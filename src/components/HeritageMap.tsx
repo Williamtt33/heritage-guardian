@@ -1,17 +1,10 @@
 import { useEffect, useState, useMemo } from 'react'
 import { getAllModels } from '../store'
 import type { ModelMeta, ConservationStatus } from '../types'
-import { CONSERVATION_STATUS_LABELS } from '../types'
+import { CONSERVATION_STATUS_LABELS, STATUS_DOT_COLORS } from '../types'
 import { usePage } from '../App'
 import PointCloudBackground from './PointCloudBackground'
 import ScrollRoller from './ScrollRoller'
-
-const STATUS_DOT_COLORS: Record<ConservationStatus, string> = {
-  excellent: '#4CAF50',
-  good: '#8BC34A',
-  needs_repair: '#FF9800',
-  critical: '#F44336',
-}
 
 export default function HeritageMap() {
   const { go } = usePage()

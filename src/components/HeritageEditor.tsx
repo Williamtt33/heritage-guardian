@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { getHeritageMeta, saveHeritageMeta } from '../store'
 import type { HeritageMeta } from '../store'
 import type { ModelMeta, HistoricalPhoto, ArchiveDocument, RepairRecord, RedCultureMark } from '../types'
-import { PROTECTION_LEVEL_LABELS, CONSERVATION_STATUS_LABELS } from '../types'
+import { PROTECTION_LEVEL_LABELS, CONSERVATION_STATUS_LABELS, uid } from '../types'
 
 type Tab = 'basic' | 'photos' | 'docs' | 'repairs' | 'red'
 
@@ -10,10 +10,6 @@ interface Props {
   model: ModelMeta
   onClose: () => void
   onSaved: () => void
-}
-
-function uid(): string {
-  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 const TABS: { key: Tab; label: string }[] = [

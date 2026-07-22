@@ -4,7 +4,7 @@ import { useToast } from './Toast'
 import { getAllModels, deleteModel, setThumbnailOverride, uploadThumbnail, getAllReports, updateReportStatus, deleteReport, getPendingModels, approveModel, rejectModel, getRejectedModels, saveModelDirect, saveHeritageMeta } from '../store'
 import { supabase, isSupabaseConfigured } from '../supabase'
 import type { ModelMeta, CommunityReport, HistoricalPhoto, ArchiveDocument, RepairRecord, RedCultureMark } from '../types'
-import { PROTECTION_LEVEL_LABELS, CONSERVATION_STATUS_LABELS } from '../types'
+import { PROTECTION_LEVEL_LABELS, CONSERVATION_STATUS_LABELS, uid } from '../types'
 import type { HeritageMeta } from '../store'
 import HeritageEditor from './HeritageEditor'
 
@@ -48,10 +48,6 @@ export default function Admin() {
     repairRecords: [] as RepairRecord[],
     redCultureMarks: [] as RedCultureMark[],
   })
-
-  function uid(): string {
-    return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  }
 
   const load = useCallback(() => {
     setLoading(true)

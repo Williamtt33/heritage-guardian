@@ -153,8 +153,10 @@ export const STORAGE_KEY_REJECTED_MODELS = 'gs_rejected_models'
 /** Generate a short human-readable tracking code for uploaders */
 export function generateTrackingCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const arr = new Uint8Array(8)
+  crypto.getRandomValues(arr)
   let code = ''
-  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  for (let i = 0; i < 8; i++) code += chars[arr[i] % chars.length]
   return code
 }
 
@@ -189,4 +191,17 @@ export const PROTECTION_LEVEL_LABELS: Record<ProtectionLevel, string> = {
   city: '市级',
   district: '区级',
   none: '未定级',
+}
+
+/** Centralized conservation status dot colors — use in all UI components */
+export const STATUS_DOT_COLORS: Record<ConservationStatus, string> = {
+  excellent: '#4CAF50',
+  good: '#8BC34A',
+  needs_repair: '#FF9800',
+  critical: '#F44336',
+}
+
+/** Generate a unique ID (crypto-native with fallback) */
+export function uid(): string {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }

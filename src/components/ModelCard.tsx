@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import type { ModelMeta, ConservationStatus, ProtectionLevel } from '../types'
-import { PROTECTION_LEVEL_LABELS, CONSERVATION_STATUS_LABELS } from '../types'
+import type { ModelMeta, ProtectionLevel } from '../types'
+import { PROTECTION_LEVEL_LABELS, CONSERVATION_STATUS_LABELS, STATUS_DOT_COLORS } from '../types'
 import { usePage } from '../App'
 
 function gradientFromId(id: string): string {
@@ -9,13 +9,6 @@ function gradientFromId(id: string): string {
   const hue1 = (hash % 60) + 240
   const hue2 = (hash % 40) + 180
   return `linear-gradient(135deg, hsl(${hue1}, 40%, 85%) 0%, hsl(${hue2}, 35%, 80%) 100%)`
-}
-
-const STATUS_DOT_COLORS: Record<ConservationStatus, string> = {
-  excellent: '#4CAF50',
-  good: '#8BC34A',
-  needs_repair: '#FF9800',
-  critical: '#F44336',
 }
 
 const PROTECTION_BADGE_COLORS: Record<ProtectionLevel, { bg: string; text: string }> = {
